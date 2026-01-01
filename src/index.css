@@ -1,0 +1,979 @@
+/* src/index.css */
+
+/* ----- Global base ----- */
+:root {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color: rgba(255, 255, 255, 0.90);
+  background-color: #0a0c14;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body.compactMode .battleLayout {
+  gap: 12px;
+}
+
+body.compactMode .handTopRow {
+  gap: 10px;
+}
+
+body.compactMode .handCardsGrid {
+  gap: 8px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+body.compactMode .handCard {
+  height: 142px;
+}
+
+body.compactMode .handCardDesc {
+  font-size: 10.5px;
+}
+
+body.compactMode .pileWrap,
+body.compactMode .pile {
+  width: 108px;
+  min-width: 108px;
+}
+
+body.compactMode .pileCard {
+  height: 112px;
+}
+
+body.compactMode .pileWrapSmall,
+body.compactMode .pileSmall {
+  width: 92px;
+  min-width: 92px;
+}
+
+body.compactMode .pileCardSmall {
+  height: 68px;
+}
+
+body.compactMode .playZone {
+  margin-top: 10px;
+  min-height: 110px;
+  padding: 10px;
+}
+
+body.compactMode .handTitle {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+body.compactMode .energyCenter {
+  height: 140px;
+}
+
+body.compactMode .enemyGrid{
+  gap: 10px;
+}
+
+body.compactMode .enemyCard{
+  padding: 10px;
+}
+
+/* Chromebook-ish layouts (11–13" screens): tighten spacing and keep cards readable */
+@media (max-width: 820px) {
+  .battleLayout {
+    gap: 12px;
+  }
+  .handTopRow {
+    gap: 10px;
+  }
+  .handCardsGrid {
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .handCardDesc {
+    font-size: 10.5px;
+  }
+
+  body.compactMode .handCardsGrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .handTopRow {
+    grid-template-columns: 110px 1fr 110px;
+    gap: 8px;
+  }
+  .pileWrap,
+  .pile {
+    width: 110px;
+    min-width: 110px;
+  }
+  .pileCard {
+    height: 118px;
+  }
+  .pileWrapSmall,
+  .pileSmall {
+    width: 96px;
+    min-width: 96px;
+  }
+  .pileCardSmall {
+    height: 72px;
+  }
+  .handCardsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cardTile {
+    border-width: 4px;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: block; /* IMPORTANT: do NOT use Vite starter flex-centering */
+
+  background-color: #0a0c14;
+  background: radial-gradient(
+    circle at 50% 0%,
+    rgba(120, 140, 255, 0.25),
+    rgba(10, 12, 20, 1)
+  );
+  background-attachment: fixed;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ----- Links ----- */
+a {
+  font-weight: 600;
+  color: #9aa7ff;
+  text-decoration: none;
+}
+a:hover {
+  color: #c2c9ff;
+  text-decoration: underline;
+}
+
+/* ----- Headings ----- */
+h1, h2, h3, h4 {
+  margin: 0;
+}
+
+/* ----- Form controls readability ----- */
+select,
+input,
+textarea {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+}
+
+select option {
+  color: #111;
+  background: #fff;
+}
+
+/* ----- Small hover polish ----- */
+.deck-row {
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+.deck-row:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-row:hover {
+    transform: none;
+  }
+}
+
+/* =========================================================
+   Containers
+   ========================================================= */
+
+/* Default container size (overworld etc) */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* Widen ONLY battle screen */
+.container.battleLayout {
+  max-width: 1440px;
+}
+
+/* =========================================================
+   Battle layout
+   ========================================================= */
+
+.battleLayout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+.battleMain {
+  min-width: 0; /* prevents grid overflow */
+}
+
+.battleSide {
+  position: sticky;
+  top: 110px;
+  max-height: calc(100vh - 140px);
+  overflow: auto;
+}
+
+/* Stack sidebar under main on smaller screens */
+@media (max-width: 980px) {
+  .battleLayout {
+    grid-template-columns: 1fr;
+  }
+  .battleSide {
+    position: static;
+    max-height: none;
+  }
+  .container.battleLayout {
+    max-width: 1280px;
+  }
+}
+
+/* =========================================================
+   Cards (hand tiles)
+   ========================================================= */
+
+.cardTile {
+  border: 5px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  user-select: none;
+}
+
+/* Card rarity accents (subtle border tint) */
+.cardTile.rarity-common {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.cardTile.rarity-uncommon {
+  border-color: rgba(34, 197, 94, 0.45);
+  border-width: 7px;
+}
+
+.cardTile.rarity-rare {
+  border-color: rgba(168, 85, 247, 0.55);
+  border-width: 7px;
+}
+
+.cardTile.rarity-ultra {
+  border-color: rgba(245, 158, 11, 0.65);
+  border-width: 7px;
+}
+
+/* Make the parent tile act as drag handle reliably */
+.cardTile * {
+  pointer-events: none;
+}
+
+/* Allow hover tooltips (and other interactions) on status chips that live inside card tiles (enemies). */
+.cardTile .statusChip {
+  pointer-events: auto;
+}
+.cardTile .statusChip * {
+  pointer-events: none;
+}
+
+.cardPlayable {
+  cursor: grab;
+}
+.cardPlayable:active {
+  cursor: grabbing;
+}
+
+.cardDisabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.cardTile:hover {
+  border-color: rgba(255, 255, 255, 0.38);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+  transform: translateY(-1px);
+}
+
+.cardTile.rarity-uncommon:hover {
+  border-color: rgba(34, 197, 94, 0.70);
+}
+
+.cardTile.rarity-rare:hover {
+  border-color: rgba(168, 85, 247, 0.80);
+}
+
+.cardTile.rarity-ultra:hover {
+  border-color: rgba(245, 158, 11, 0.90);
+}
+
+/* =========================================================
+   Negative/Cursed cards (ids starting with neg_)
+   ========================================================= */
+
+.cardTile.negativeCard {
+  border-color: rgba(168, 85, 247, 0.85) !important;
+  box-shadow:
+    0 0 0 2px rgba(168, 85, 247, 0.55),
+    0 0 18px rgba(168, 85, 247, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes negFlameFlicker {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.55;
+    filter: blur(10px);
+  }
+  35% {
+    transform: translate3d(2px, -3px, 0) scale(1.02);
+    opacity: 0.72;
+    filter: blur(12px);
+  }
+  70% {
+    transform: translate3d(-2px, 2px, 0) scale(0.99);
+    opacity: 0.60;
+    filter: blur(11px);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.55;
+    filter: blur(10px);
+  }
+}
+
+@keyframes negFlameRise {
+  0% {
+    transform: translate3d(0, 10px, 0) scale(1);
+    opacity: 0.35;
+  }
+  60% {
+    transform: translate3d(0, -8px, 0) scale(1.04);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(0, -14px, 0) scale(1.06);
+    opacity: 0.18;
+  }
+}
+
+.cardTile.negativeCard::before {
+  content: "";
+  position: absolute;
+  inset: -18px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 78%, rgba(168,85,247,0.30), rgba(168,85,247,0) 52%),
+    radial-gradient(circle at 30% 86%, rgba(217,70,239,0.22), rgba(217,70,239,0) 58%),
+    radial-gradient(circle at 70% 86%, rgba(192,132,252,0.22), rgba(192,132,252,0) 58%);
+  mix-blend-mode: screen;
+  animation: negFlameFlicker 1.15s ease-in-out infinite;
+}
+
+.cardTile.negativeCard::after {
+  content: "";
+  position: absolute;
+  inset: -22px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 95%, rgba(168,85,247,0.30), rgba(168,85,247,0) 62%),
+    radial-gradient(circle at 48% 85%, rgba(217,70,239,0.16), rgba(217,70,239,0) 58%),
+    radial-gradient(circle at 52% 85%, rgba(192,132,252,0.16), rgba(192,132,252,0) 58%);
+  mix-blend-mode: screen;
+  animation: negFlameRise 1.35s linear infinite;
+}
+
+.cardTile.negativeCard:hover {
+  border-color: rgba(168, 85, 247, 0.95) !important;
+  box-shadow:
+    0 0 0 2px rgba(168, 85, 247, 0.65),
+    0 0 26px rgba(168, 85, 247, 0.50);
+}
+
+/* =========================================================
+   Pile pulse when a curse is added
+   ========================================================= */
+
+@keyframes curseGlowPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0), 0 0 0 rgba(168, 85, 247, 0);
+  }
+  20% {
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.55), 0 0 22px rgba(168, 85, 247, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0), 0 0 0 rgba(168, 85, 247, 0);
+  }
+}
+
+.pileWrap.curseGlow {
+  animation: curseGlowPulse 950ms ease-out;
+  border-radius: 14px;
+}
+
+@keyframes statusGlowPulse {
+  0% {
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25), 0 0 10px rgba(59, 130, 246, 0.10);
+    filter: brightness(1.05) saturate(1.15);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.55), 0 0 18px rgba(59, 130, 246, 0.28);
+    filter: brightness(1.25) saturate(1.35);
+  }
+  100% {
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25), 0 0 10px rgba(59, 130, 246, 0.10);
+    filter: brightness(1.05) saturate(1.15);
+  }
+}
+
+.statusChipGlowPulse {
+  animation: statusGlowPulse 820ms ease-in-out infinite;
+}
+
+/* Battle log semantic colors */
+.logDmg { color: rgba(239, 68, 68, 0.95); font-weight: 800; }
+.logBlock { color: rgba(59, 130, 246, 0.95); font-weight: 800; }
+.logHeal { color: rgba(34, 197, 94, 0.95); font-weight: 800; }
+.logCurse { color: rgba(168, 85, 247, 0.98); font-weight: 800; }
+.logBuff { color: rgba(245, 158, 11, 0.95); font-weight: 800; }
+.logDebuff { color: rgba(236, 72, 153, 0.95); font-weight: 800; }
+
+@keyframes statusShieldPulse {
+  0% { box-shadow: 0 0 0 0 rgba(168,85,247,0.0); border-color: rgba(168,85,247,0.35); }
+  30% { box-shadow: 0 0 0 3px rgba(168,85,247,0.22); border-color: rgba(168,85,247,0.70); }
+  60% { box-shadow: 0 0 0 2px rgba(168,85,247,0.14); border-color: rgba(168,85,247,0.55); }
+  100% { box-shadow: 0 0 0 0 rgba(168,85,247,0.0); border-color: rgba(168,85,247,0.35); }
+}
+
+.statusChipShieldPulse {
+  animation: statusShieldPulse 900ms ease-in-out infinite;
+}
+
+.cardDisabled:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+/* =========================================================
+   Play Area drop zone (always visible)
+   ========================================================= */
+
+.playZone {
+  margin-top: 12px;
+  min-height: 140px;
+  border-radius: 14px;
+  padding: 14px;
+
+  /* always-on target look */
+  border: 2px dashed rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.04);
+
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+/* Mild boost once dragging begins (not necessarily over it) */
+.playZoneArmed {
+  border-color: rgba(34, 197, 94, 0.60);
+  background: rgba(34, 197, 94, 0.07);
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.10) inset;
+}
+
+/* Strongest highlight when actually over the drop zone */
+.playZoneHot {
+  border-color: rgba(34, 197, 94, 0.85);
+  background: rgba(34, 197, 94, 0.10);
+  box-shadow:
+    0 0 0 2px rgba(34, 197, 94, 0.10) inset,
+    0 0 26px rgba(34, 197, 94, 0.20);
+}
+
+/* Exam: forced question warning state */
+.playZoneExam {
+  border-color: rgba(239, 68, 68, 0.85);
+  background: rgba(239, 68, 68, 0.10);
+  box-shadow:
+    0 0 0 2px rgba(239, 68, 68, 0.12) inset,
+    0 0 26px rgba(239, 68, 68, 0.22);
+}
+
+.dropHere {
+  margin-top: 10px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  opacity: 0.95;
+}
+
+/* =========================================================
+   Hand Panel mockup layout: Draw | Energy | Discard (top)
+   + Hand cards (bottom)
+   ========================================================= */
+
+.handPanel {
+  overflow: hidden;
+}
+
+.handTopRow {
+  display: grid;
+  grid-template-columns: 130px 1fr 130px;
+  align-items: start;
+  gap: 14px;
+}
+
+.energyCenter {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 170px;
+  min-width: 0;
+}
+
+.handTitle {
+  text-align: center;
+  font-weight: 900;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+/* Piles */
+.pileWrap {
+  width: 130px;
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.pileWrapSmall {
+  width: 104px;
+  min-width: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.pileLabel {
+  font-size: 12px;
+  opacity: 0.75;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+
+.pile {
+  width: 130px;
+  min-width: 130px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pileSmall {
+  width: 104px;
+  min-width: 104px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pileWrap.pileInteractive {
+  cursor: pointer;
+}
+
+.pileWrap.pileInteractive .pileCard {
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.pileWrap.pileInteractive:hover .pileCard {
+  border-color: rgba(255, 255, 255, 0.38);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+}
+
+.pileWrap.pileInteractive:active .pileCard {
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.pileModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 99998;
+}
+
+.pileModal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(860px, calc(100vw - 24px));
+  max-height: min(80vh, 720px);
+  overflow: auto;
+  z-index: 99999;
+}
+
+.pileCard {
+  width: 100%;
+  height: 132px; /* keeps it from collapsing into a line */
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.22);
+  box-sizing: border-box;
+}
+
+.pileCardSmall {
+  width: 100%;
+  height: 78px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.22);
+  box-sizing: border-box;
+}
+
+.pileCard.back {
+  background: linear-gradient(
+    135deg,
+    rgba(120, 140, 255, 0.20),
+    rgba(0, 0, 0, 0.30)
+  );
+}
+
+.pileCard.face {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.pileCount {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.45);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+/* Bottom row cards */
+.handCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.handCardWrap {
+  min-width: 0; /* critical so grid doesn’t overflow */
+}
+
+.handCard {
+  height: clamp(148px, 18vw, 170px);           /* consistent height like your mockup */
+  overflow: hidden;        /* prevents desc from stretching the tile */
+  display: flex;
+  flex-direction: column;
+}
+
+.handCardDesc {
+  font-size: 11px;
+  margin-top: 6px;
+  opacity: 0.75;
+  overflow: hidden;
+  display: -webkit-box;
+  line-clamp: 4;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+
+/* Responsive */
+@media (max-width: 980px) {
+  .handTopRow {
+    grid-template-columns: 120px 1fr 120px;
+  }
+  .pileWrap,
+  .pile {
+    width: 120px;
+    min-width: 120px;
+  }
+  .pileCard {
+    height: 124px;
+  }
+  .handCardsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ===== Entities (sprites + statuses) ===== */
+
+.entityTop{
+  display: grid;
+  gap: 10px;
+}
+
+.entitySprite{
+  height: clamp(92px, 14vw, 120px);
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(42px, 7vw, 56px); /* emoji placeholder size */
+  box-shadow: 0 10px 26px rgba(0,0,0,0.25);
+  overflow: hidden; /* IMPORTANT for images */
+}
+
+body.compactMode .entitySprite{
+  height: clamp(68px, 10vw, 90px);
+  font-size: clamp(34px, 5.6vw, 48px);
+  border-radius: 14px;
+}
+
+.entitySpriteImg{
+  padding: 0;
+}
+
+.entitySpriteImg img{
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* use 'cover' if you want tighter portraits */
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Enemy list grid */
+.enemyGrid{
+  display: grid;
+  gap: 12px;
+}
+
+.enemyCard{
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255,255,255,0.03);
+}
+
+.enemyIntent{
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Status icons row */
+.statusRow{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 22px; /* keeps spacing consistent even with no statuses */
+}
+
+.statusChip{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.25);
+  font-size: 12px;
+}
+
+/* Tooltip for buffs/debuffs (uses data-tip attr) */
+.statusChip[data-tip],
+.badge[data-tip]{
+  position: relative;
+  cursor: help;
+}
+
+.statusChip[data-tip]:hover::after,
+.badge[data-tip]:hover::after{
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 50;
+  width: max-content;
+  max-width: 320px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.92);
+  color: rgba(255,255,255,0.92);
+  font-size: 12px;
+  line-height: 1.25;
+  white-space: normal;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.45);
+  pointer-events: none;
+}
+
+/* Tooltip for badges (intents, block, etc.) - use same approach as status chips */
+.enemyIntent div[data-tip]{
+  position: relative;
+  cursor: help;
+}
+
+.enemyIntent div[data-tip]:hover::after{
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 99999;
+  width: max-content;
+  max-width: 320px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.92);
+  color: rgba(255,255,255,0.92);
+  font-size: 12px;
+  line-height: 1.25;
+  white-space: normal;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.45);
+  pointer-events: none;
+}
+
+.statusIcon{
+  font-size: 14px;
+  line-height: 1;
+}
+
+.statusStacks{
+  font-weight: 900;
+  font-size: 12px;
+}
+
+@keyframes statusProcPulse {
+  0% { filter: brightness(1.6); transform: scale(1.06); }
+  100% { filter: brightness(1.0); transform: scale(1.0); }
+}
+
+.statusChipProcFlash {
+  animation: statusProcPulse 650ms ease-out;
+  box-shadow: 0 0 0 2px rgba(168,85,247,0.55), 0 0 18px rgba(168,85,247,0.25);
+  border-color: rgba(168,85,247,0.55);
+}
+
+.statusChipProcFlashGreen {
+  animation: statusProcPulse 650ms ease-out;
+  box-shadow: 0 0 0 2px rgba(34,197,94,0.65), 0 0 18px rgba(34,197,94,0.28);
+  border-color: rgba(34,197,94,0.65);
+}
+
+
+/* Rewards: keep glow without hover-jitter + add subtle highlight */
+.rewardTile:hover {
+  transform: none;
+  border-color: rgba(255, 215, 120, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 215, 120, 0.10), 0 10px 26px rgba(0,0,0,0.35);
+}
+
+.cardTile.selected {
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.10), 0 10px 26px rgba(0, 0, 0, 0.35);
+}
+
+
+/* Status chip heal flash (regen etc.) */
+.statusChipHealFlash {
+  animation: statusHealPulse 0.25s ease-out;
+  box-shadow: 0 0 0 2px rgba(80,255,140,0.55), 0 0 18px rgba(80,255,140,0.25);
+}
+
+@keyframes statusHealPulse {
+  0% { filter: brightness(1.6); transform: scale(1.04); }
+  100% { filter: brightness(1.0); transform: scale(1.0); }
+}
+
+
+/* Floating damage popup near HP bars */
+@keyframes dmgPopFloat {
+  0% { opacity: 0; transform: translateY(6px) scale(0.95); }
+  10% { opacity: 1; transform: translateY(0px) scale(1); }
+  88% { opacity: 1; transform: translateY(-14px) scale(1); }
+  100% { opacity: 0; transform: translateY(-18px) scale(0.98); }
+}
+.dmgPopup {
+  position: absolute;
+  right: 10px;
+  top: -44px;
+  padding: 10px 16px;
+  font-weight: 900;
+  font-size: 34px;
+  border-radius: 16px;
+  background: rgba(0,0,0,0.86);
+  border: 2px solid rgba(255,255,255,0.22);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.35);
+  color: rgba(255,90,90,0.95);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.35);
+  pointer-events: none;
+  animation: dmgPopFloat 1.9s ease-out forwards;
+}
+
+.healPopup {
+  position: absolute;
+  right: 10px;
+  top: -44px;
+  padding: 10px 16px;
+  font-weight: 900;
+  font-size: 34px;
+  border-radius: 16px;
+  background: rgba(0,0,0,0.86);
+  border: 2px solid rgba(255,255,255,0.22);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.35);
+  color: rgba(80,255,140,0.95);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.35);
+  pointer-events: none;
+  animation: dmgPopFloat 1.9s ease-out forwards;
+}
+
+/* Screen shake on player damage */
+@keyframes screenShake {
+  0% { transform: translate(0, 0); }
+  15% { transform: translate(-3px, 1px); }
+  30% { transform: translate(3px, -1px); }
+  45% { transform: translate(-2px, -1px); }
+  60% { transform: translate(2px, 1px); }
+  75% { transform: translate(-1px, 0px); }
+  100% { transform: translate(0, 0); }
+}
+.screenShake {
+  animation: screenShake 220ms ease-out;
+}
+
+/* Status chip heal flash (for Regen tick) */
+@keyframes statusHealPulse {
+  0% { box-shadow: 0 0 0 0 rgba(80,255,140,0.0); transform: translateY(0); filter: brightness(1); }
+  35% { box-shadow: 0 0 0 5px rgba(80,255,140,0.65); transform: translateY(-1px); filter: brightness(1.2); }
+  100% { box-shadow: 0 0 0 0 rgba(80,255,140,0.0); transform: translateY(0); filter: brightness(1); }
+}
+.statusChipHealFlash {
+  background: rgba(80,255,140,0.18);
+  border-color: rgba(80,255,140,0.55);
+  animation: statusHealPulse 650ms ease-out;
+}

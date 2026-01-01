@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#0b1020"/>
+
+  <!-- Bench -->
+  <rect y="520" width="1200" height="280" fill="#121826"/>
+  <rect y="560" width="1200" height="240" fill="#0a0f1a" opacity="0.55"/>
+
+  <!-- Soft eerie glow -->
+  <circle cx="610" cy="340" r="240" fill="#38ffb6" opacity="0.08"/>
+  <circle cx="740" cy="300" r="160" fill="#a92dff" opacity="0.06"/>
+
+  <!-- Beaker -->
+  <g transform="translate(0,0)">
+    <path d="M560 170 L640 170 L640 235 L695 345 L695 470 Q695 500 665 500 L535 500 Q505 500 505 470 L505 345 L560 235 Z" fill="#0e1526" opacity="0.35"/>
+    <path d="M560 170 L640 170 L640 235 L695 345 L695 470 Q695 500 665 500 L535 500 Q505 500 505 470 L505 345 L560 235 Z" fill="none" stroke="#c7d2fe" stroke-width="6" opacity="0.55"/>
+
+    <!-- Toxic liquid -->
+    <path d="M535 500 Q505 500 505 470 L505 365 Q585 345 635 372 Q665 390 695 370 L695 470 Q695 500 665 500 Z" fill="#38ffb6" opacity="0.55"/>
+    <path d="M522 410 Q590 392 645 420 Q672 434 690 410" fill="none" stroke="#38ffb6" stroke-width="6" opacity="0.35"/>
+
+    <!-- Bubbles -->
+    <circle cx="560" cy="420" r="10" fill="#38ffb6" opacity="0.55"/>
+    <circle cx="610" cy="390" r="7" fill="#38ffb6" opacity="0.45"/>
+    <circle cx="650" cy="445" r="9" fill="#38ffb6" opacity="0.45"/>
+  </g>
+
+  <!-- Two vials -->
+  <g>
+    <rect x="820" y="250" width="90" height="240" rx="20" fill="#0e1526" opacity="0.35"/>
+    <rect x="820" y="250" width="90" height="240" rx="20" fill="none" stroke="#c7d2fe" stroke-width="5" opacity="0.45"/>
+    <rect x="830" y="360" width="70" height="120" rx="14" fill="#e5e7eb" opacity="0.28"/>
+    <rect x="835" y="425" width="60" height="55" rx="12" fill="#38ffb6" opacity="0.4"/>
+
+    <rect x="930" y="260" width="90" height="230" rx="20" fill="#0e1526" opacity="0.35"/>
+    <rect x="930" y="260" width="90" height="230" rx="20" fill="none" stroke="#c7d2fe" stroke-width="5" opacity="0.45"/>
+    <rect x="940" y="370" width="70" height="110" rx="14" fill="#0f172a" opacity="0.35"/>
+    <rect x="945" y="430" width="60" height="50" rx="12" fill="#0b1020" opacity="0.65"/>
+  </g>
+
+  <!-- Label -->
+  <g opacity="0.85">
+    <text x="88" y="110" font-size="44" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial" fill="#e5e7eb">Poison Extraction</text>
+    <text x="88" y="155" font-size="22" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial" fill="#a1a1aa">ANTIDOTE = SAFE · POISON = POWER</text>
+  </g>
+</svg>

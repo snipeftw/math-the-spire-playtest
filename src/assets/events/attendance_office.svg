@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#0b1020"/>
+
+  <!-- Clean, too-perfect walls -->
+  <rect x="0" y="0" width="1200" height="520" fill="#0f172a" opacity="0.85"/>
+  <rect x="0" y="0" width="1200" height="520" fill="#111827" opacity="0.55"/>
+
+  <!-- Counter -->
+  <rect x="0" y="520" width="1200" height="280" fill="#111827"/>
+  <rect x="0" y="560" width="1200" height="240" fill="#070b14" opacity="0.55"/>
+
+  <!-- Eerie lighting -->
+  <circle cx="820" cy="220" r="220" fill="#a92dff" opacity="0.07"/>
+  <circle cx="360" cy="260" r="260" fill="#38ffb6" opacity="0.05"/>
+
+  <!-- Sign -->
+  <g opacity="0.95">
+    <rect x="90" y="90" width="520" height="120" rx="20" fill="#0b1020" opacity="0.55"/>
+    <rect x="90" y="90" width="520" height="120" rx="20" fill="none" stroke="#c7d2fe" stroke-width="5" opacity="0.45"/>
+    <text x="120" y="150" font-size="48" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial" fill="#e5e7eb">Attendance Office</text>
+    <text x="120" y="190" font-size="20" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial" fill="#a1a1aa">ABSENCES MUST BE EXPLAINED</text>
+  </g>
+
+  <!-- Counter clutter (perfectly aligned) -->
+  <g opacity="0.75">
+    <rect x="140" y="470" width="150" height="45" rx="10" fill="#0b1020" opacity="0.55"/>
+    <rect x="305" y="465" width="110" height="50" rx="10" fill="#0b1020" opacity="0.45"/>
+    <rect x="430" y="475" width="180" height="40" rx="10" fill="#0b1020" opacity="0.5"/>
+  </g>
+
+  <!-- The attendant (subtly off) -->
+  <g transform="translate(0,0)">
+    <!-- body -->
+    <rect x="770" y="330" width="240" height="260" rx="70" fill="#0b1020" opacity="0.5"/>
+    <rect x="790" y="360" width="200" height="210" rx="60" fill="#0f172a" opacity="0.75"/>
+
+    <!-- head -->
+    <ellipse cx="890" cy="300" rx="110" ry="90" fill="#0f172a" opacity="0.85"/>
+    <ellipse cx="890" cy="300" rx="110" ry="90" fill="none" stroke="#c7d2fe" stroke-width="5" opacity="0.35"/>
+
+    <!-- eyes (too still) -->
+    <ellipse cx="855" cy="295" rx="22" ry="14" fill="#e5e7eb" opacity="0.9"/>
+    <ellipse cx="925" cy="295" rx="22" ry="14" fill="#e5e7eb" opacity="0.9"/>
+    <circle cx="855" cy="295" r="6" fill="#0b1020" opacity="0.95"/>
+    <circle cx="925" cy="295" r="6" fill="#0b1020" opacity="0.95"/>
+
+    <!-- smile (a bit too wide) -->
+    <path d="M825 332 Q890 365 955 332" fill="none" stroke="#e5e7eb" stroke-width="6" opacity="0.35" stroke-linecap="round"/>
+
+    <!-- stamp + pen -->
+    <rect x="620" y="500" width="110" height="55" rx="12" fill="#0b1020" opacity="0.55"/>
+    <rect x="640" y="475" width="70" height="35" rx="10" fill="#0b1020" opacity="0.75"/>
+    <path d="M520 520 L610 490" stroke="#c7d2fe" stroke-width="6" opacity="0.35" stroke-linecap="round"/>
+    <path d="M610 490 L630 500" stroke="#c7d2fe" stroke-width="6" opacity="0.35" stroke-linecap="round"/>
+  </g>
+
+  <!-- Floor reflection line -->
+  <rect x="0" y="518" width="1200" height="4" fill="#c7d2fe" opacity="0.08"/>
+</svg>
