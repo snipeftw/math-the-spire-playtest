@@ -5,6 +5,7 @@ import type { GameState } from "../game/state";
 import { SUPPLIES_POOL_10 } from "../content/supplies";
 import { CONSUMABLES_10 } from "../content/consumables";
 import {
+  BASE_CARDS,
   ALL_CARDS_40ish,
   cardDescForUi,
   EXHAUST_TOOLTIP,
@@ -785,50 +786,8 @@ return (ev?.choices ?? []).map((c) => ({
       }
     }
 
-    if (ev?.id === "pop_up_vendor") {
-      const eventOnlySupplyIds = SUPPLIES_POOL_10.filter((s: any) => !!(s as any)?.eventOnly).map((s: any) => String(s.id));
-      const eventOnlyConsumableIds = CONSUMABLES_10.filter((c: any) => !!(c as any)?.eventOnly).map((c: any) => String(c.id));
-      const eventOnlyCardIds = ALL_CARDS_40ish.filter((c: any) => !!(c as any)?.eventOnly).map((c: any) => String(c.id));
-
-      const sample = <T,>(arr: T[], n: number) => arr.slice(0, Math.max(0, n));
-
-      switch (choiceId) {
-        case "browse_wares":
-          return {
-            supplies: sample(eventOnlySupplyIds, 6) as any,
-            consumables: sample(eventOnlyConsumableIds, 6) as any,
-            cards: sample(eventOnlyCardIds, 6) as any,
-            note: "Open an Event Shop with a random selection from the event-only pools.",
-          };
-        case "mystery_bag": {
-          const basePool = CONSUMABLES_10.filter((c: any) => !(c as any)?.eventOnly).map((c: any) => String(c.id));
-          return { consumables: basePool, note: "Gain 1 random base-game consumable." };
-        }
-        case "leave":
-          return { note: "Leave without a question gate." };
-      }
-    }
-
-    if (ev?.id === "exam_week_ladder") {
-      const eventOnlySupplyIds = SUPPLIES_POOL_10.filter((s: any) => !!(s as any)?.eventOnly).map((s: any) => String(s.id));
-      const eventOnlyConsumableIds = CONSUMABLES_10.filter((c: any) => !!(c as any)?.eventOnly).map((c: any) => String(c.id));
-      const eventOnlyCardIds = ALL_CARDS_40ish.filter((c: any) => !!(c as any)?.eventOnly).map((c: any) => String(c.id));
-      const sample = <T,>(arr: T[], n: number) => arr.slice(0, Math.max(0, n));
-
-      switch (choiceId) {
-        case "start":
-          return {
-            note:
-	              "Rung 1: 💰 +30\nRung 2: 💰 +60\nRung 3: choose 1 of 2 event-only consumables\nRung 4: choose 1 of 3 event-only cards\nRung 5: 🧾 Perfect Record (supply)",
-            consumables: sample(eventOnlyConsumableIds, 6) as any,
-            cards: sample(eventOnlyCardIds, 6) as any,
-	            // Rung 5 reward is fixed.
-	            supplies: ["sup_no_negative_cards"],
-          };
-        case "leave":
-          return { note: "Leave before the proctor notices." };
-      }
-    }
+	  // Note: Detailed hover previews (cards/consumables/supplies/note) are handled by previewForChoice.
+	  // hoverTargetsForChoice is intentionally kept to simple highlight targets (gold/hp/supply badges).
 
     if (ev?.id === "vending_machine_glitch") {
       switch (choiceId) {

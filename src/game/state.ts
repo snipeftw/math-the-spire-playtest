@@ -155,12 +155,21 @@ export type GameState = {
         pendingUpgradeText?: string;
         pendingCardId?: string;
         pendingCardIds?: string[];
+        // Some events add a "bonus" permanent/extra card alongside a primary reward card.
+        // This queue is processed during CARD_PICK resolution.
+        pendingExtraCardIds?: string[];
         pendingCardResultText?: string;
 
         pendingConsumableIds?: string[];
         // When present, tracks which pending consumables have been claimed so far
         // (used for multi-claim reward popups like the Vending Machine Glitch).
         claimedConsumableIds?: string[];
+
+        // Some events grant a consumable but want the player to continue the event after claiming
+        // (e.g., Pop-Up Vendor mystery bag).
+        afterConsumablePickStep?: string;
+        // Per-event flags (kept on nodeScreen to persist if the player closes/reopens the node).
+        vendorMysteryUsed?: boolean;
         pendingSupplyIds?: string[];
         pendingRewardText?: string;
         pendingGoldGain?: number;
@@ -2256,6 +2265,11 @@ Gain 75 gold. Added to deck: ${negName(negId)}.`,
         const maxHp = Number.isFinite(maxHp0) ? Math.max(1, Math.floor(maxHp0)) : 1;
 
         const cur = (state.currentSupplyIds ?? []).slice();
+        // Persist newly-earned supplies into setup loadout when needed.
+        // (Some event branches reference setupSupplyIds; ensure it's always defined + typed.)
+        const setupSupplyIds: string[] = Array.isArray((state.setup as any)?.supplyIds)
+          ? ((state.setup as any).supplyIds as any[]).filter((s: any): s is string => typeof s === "string")
+          : [];
         const legacySupplyId = (state.setup as any)?.supplyId ?? null;
 
         if (action.choiceId === "trade_deodorant") {
@@ -3105,6 +3119,7 @@ The air bites. Take ${taken} damage.`,
           const rSeed = (state.seed ^ hashStringToInt(`event:vendor:mystery:${nodeId}`)) >>> 0;
           const rng = makeRng((rSeed ^ 0xFACEFEED) >>> 0);
           const picked = pickWeighted(rng, basePool, (id) => weightByRarity((CONSUMABLE_BY_ID.get(id) as any)?.rarity));
+          if (!picked) return state;
 
           return {
             ...state,
@@ -3429,7 +3444,9 @@ The air bites. Take ${taken} damage.`,
       // clear the pending selection so the player isn't soft-locked.
       if (!pending) return state;
       if (!quiz || quiz.pendingIndex !== pending.index) {
-        return { ...baseState,
+        // baseState isn't initialized yet in this branch (and we haven't modified state),
+        // so just return a cleaned-up copy of state.
+        return { ...state,
           nodeScreen: {
             ...ns,
             step: "HALLWAY",
@@ -3535,7 +3552,8 @@ The air bites. Take ${taken} damage.`,
       const q: any = gate?.question ?? null;
       if (!gate || !q) {
         // Fail safe: allow the player to leave.
-        return { ...baseState,
+        return {
+          ...state,
           nodeScreen: {
             ...ns,
             step: "RESULT",
