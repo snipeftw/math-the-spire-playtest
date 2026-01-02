@@ -232,6 +232,15 @@ export default function App() {
   const [runCodeOpen, setRunCodeOpen] = useState(false);
   const [runCodeCopied, setRunCodeCopied] = useState(false);
   const [runCodeModalErr, setRunCodeModalErr] = useState<string | null>(null);
+
+  // View-only overworld map peek (opened from Run Loadout on non-overworld screens)
+  const [mapPeekOpen, setMapPeekOpen] = useState(false);
+  useEffect(() => {
+    // If we navigate back to the overworld (or lose the map), close the peek.
+    if (state.screen === "OVERWORLD" || !(state as any).map) {
+      setMapPeekOpen(false);
+    }
+  }, [state.screen, (state as any).map]);
   
   // Event inventory hover highlights (gold/HP/supplies)
   const [invHoverTargets, setInvHoverTargets] = useState<
@@ -922,6 +931,80 @@ export default function App() {
         );
       })();
 
+  const MapPeekModal = (() => {
+    const canPeek =
+      mapPeekOpen &&
+      state.screen !== "OVERWORLD" &&
+      !!(state as any).map &&
+      !!(state as any).currentNodeId;
+
+    if (!canPeek) return null;
+
+    const map = (state as any).map;
+    const currentNodeId = (state as any).currentNodeId;
+
+    return createPortal(
+      <div
+        onClick={() => {
+          try { sfx.click(); } catch {}
+          setMapPeekOpen(false);
+        }}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 9000,
+          background: "rgba(0,0,0,0.65)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 14,
+        }}
+      >
+        <div
+          className="panel"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: "min(1120px, 96vw)",
+            maxHeight: "86vh",
+            overflow: "auto",
+            position: "relative",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 18, fontWeight: 900 }}>🗺️ Overworld Map (view only)</div>
+            <button
+              className="btn"
+              onClick={() => {
+                try { sfx.click(); } catch {}
+                setMapPeekOpen(false);
+              }}
+            >
+              Close
+            </button>
+          </div>
+          <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+            You can hover to inspect nodes, but you can’t travel from here.
+          </div>
+
+          <div style={{ marginTop: 10 }}>
+            <OverworldScreen
+              map={map}
+              currentNodeId={currentNodeId}
+              setupDone={true}
+              gold={Number((state as any).gold ?? 0)}
+              teacherUnlocked={false}
+              lockedNodeIds={(state as any).lockedNodeIds}
+              readOnly
+              onClickStart={() => {}}
+              onOpenNode={() => {}}
+            />
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  })();
+
   // Boss intro overlay state
   const [bossIntro, setBossIntro] = useState<null | { nodeId: string; difficulty: 1 | 2 | 3 }>(null);
 
@@ -1389,17 +1472,33 @@ export default function App() {
                 onMouseEnter={() => sfx.cardHover()}
               >
                 <div style={{ fontSize: 16, fontWeight: 800 }}>Run Loadout</div>
-                <button
-                  className="btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    sfx.click();
-                    resetLoadoutBox();
-                  }}
-                  title="Reset position/size"
-                >
-                  Reset
-                </button>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {state.screen !== "OVERWORLD" && !!(state as any).map && !!(state as any).currentNodeId ? (
+                    <button
+                      className="btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        try { sfx.click(); } catch {}
+                        setMapPeekOpen(true);
+                      }}
+                      title="View the overworld map (read-only)"
+                    >
+                      🗺️ Map
+                    </button>
+                  ) : null}
+
+                  <button
+                    className="btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      sfx.click();
+                      resetLoadoutBox();
+                    }}
+                    title="Reset position/size"
+                  >
+                    Reset
+                  </button>
+                </div>
               </div>
 
               <div style={{ marginTop: 10 }} className="row">
@@ -1858,6 +1957,7 @@ export default function App() {
         {ConsumableModal}
         {TrashRemoveModal}
         {RunCodeModal}
+        {MapPeekModal}
         <TitleScreen
           onStart={(seed) => {
             try { sfx.confirm(); } catch {}
@@ -1908,6 +2008,7 @@ export default function App() {
         {ConsumableModal}
         {TrashRemoveModal}
         {RunCodeModal}
+        {MapPeekModal}
         {TopBar("Overworld")}
 
         <OverworldScreen
@@ -1937,6 +2038,7 @@ export default function App() {
         {ConsumableModal}
         {TrashRemoveModal}
         {RunCodeModal}
+        {MapPeekModal}
         {TopBar("Starting Area")}
         <SetupScreen
           seed={state.seed}
@@ -1958,6 +2060,7 @@ export default function App() {
         {ConsumableModal}
         {TrashRemoveModal}
         {RunCodeModal}
+        {MapPeekModal}
         {TopBar(`Node • ${state.nodeScreen.type} (Depth ${state.nodeScreen.depth})`)}
         <NodeScreen
           node={state.nodeScreen as any}
@@ -2069,6 +2172,7 @@ export default function App() {
         {ConsumableModal}
         {TrashRemoveModal}
         {RunCodeModal}
+        {MapPeekModal}
         {TopBar(`Battle${state.battle.isBoss ? " • BOSS" : ""}`)}
         <BattleScreen
           rng={rng}
@@ -2108,6 +2212,7 @@ export default function App() {
         {ConsumableModal}
         {TrashRemoveModal}
         {RunCodeModal}
+        {MapPeekModal}
         {TopBar("Rewards")}
         {reward ? (
           <RewardScreen
@@ -2158,6 +2263,7 @@ export default function App() {
         {ConsumableModal}
         {TrashRemoveModal}
         {RunCodeModal}
+        {MapPeekModal}
         {TopBar("Defeat")}
         <div className="container">
           <div className="panel" style={{ textAlign: "center" }}>
@@ -2267,6 +2373,7 @@ export default function App() {
         {ConsumableModal}
         {TrashRemoveModal}
         {RunCodeModal}
+        {MapPeekModal}
         {TopBar("Victory")}
         <div className="container">
           <div className="panel" style={{ textAlign: "center" }}>

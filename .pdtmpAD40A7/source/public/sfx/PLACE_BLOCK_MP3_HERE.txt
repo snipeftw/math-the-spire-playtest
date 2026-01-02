@@ -1,5 +1,0 @@
-Drop your block sound effect file here and name it:
-
-  block.mp3
-
-It will play when a hit is fully absorbed by Block.

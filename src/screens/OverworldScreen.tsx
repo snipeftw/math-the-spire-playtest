@@ -39,6 +39,9 @@ export function OverworldScreen(props: {
   teacherUnlocked: boolean;
   lockedNodeIds?: string[];
 
+  /** If true, show the map but disable all node clicks (view-only). */
+  readOnly?: boolean;
+
   onClickStart: () => void;
   onOpenNode: (node: MapNode) => void;
 }) {
@@ -50,6 +53,7 @@ export function OverworldScreen(props: {
   const locked = new Set(props.lockedNodeIds ?? []);
 
   const canClick = (n: MapNode) => {
+    if (props.readOnly) return false;
     if (props.teacherUnlocked) return true; // teacher-mode free clicking
     if (locked.has(n.id)) return false;
     if (!props.setupDone) return n.id === startId;

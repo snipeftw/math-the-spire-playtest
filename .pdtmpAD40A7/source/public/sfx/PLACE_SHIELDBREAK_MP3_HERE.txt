@@ -1,5 +1,0 @@
-Drop your shield break sound effect file here and name it:
-
-  shieldbreak.mp3
-
-It will play when Block breaks and damage hits HP.
