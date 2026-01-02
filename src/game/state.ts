@@ -14,8 +14,7 @@ const BASE_CARD_BY_ID = new Map(BASE_CARDS.map((c) => [c.id, c] as const));
 const UPGRADED_CARD_BY_ID = new Map(UPGRADED_CARDS.map((c) => [c.id, c] as const));
 const NEGATIVE_CARD_BY_ID = new Map(NEGATIVE_CARDS.map((c) => [c.id, c] as const));
 const NEGATIVE_CARD_IDS = new Set(NEGATIVE_CARDS.map((c) => c.id));
-const NEGATIVE_CARD_BY_ID = new Map(NEGATIVE_CARDS.map((c) => [c.id, c] as const));
-const NEGATIVE_CARD_ID_SET = new Set<string>(NEGATIVE_CARDS.map((c) => String(c.id)));
+// (The map and id-set above are the single source of truth for negative cards.)
 
 import { CONSUMABLES_10 } from "../content/consumables";
 import { SUPPLIES_POOL_10 } from "../content/supplies";
