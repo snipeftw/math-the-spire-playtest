@@ -58,6 +58,7 @@ export function OverworldScreen(props: {
 
   // ----- Hover highlight + hover SFX -----
   const [legendHover, setLegendHover] = useState<LegendHighlight>(null);
+  const [nodeHoverType, setNodeHoverType] = useState<NodeType | null>(null);
 
   const lastHoverAtRef = useRef<number>(0);
   function hoverSfx() {
@@ -129,12 +130,17 @@ export function OverworldScreen(props: {
     kind: LegendHighlight;
     badgeClass?: string;
   }) {
-    const active =
-      legendHover &&
+    const activeFromLegend =
+      !!legendHover &&
       ((legendHover.kind === "NEXT" && props2.kind?.kind === "NEXT") ||
         (legendHover.kind === "TYPE" &&
           props2.kind?.kind === "TYPE" &&
           legendHover.nodeType === props2.kind.nodeType));
+
+    const activeFromNode =
+      props2.kind?.kind === "TYPE" && !!nodeHoverType && nodeHoverType === props2.kind.nodeType;
+
+    const active = activeFromLegend || activeFromNode;
 
     return (
       <span
@@ -221,7 +227,10 @@ export function OverworldScreen(props: {
         </div>
       </div>
 
-      <div className="panel mapFrame">
+      <div
+        className="panel mapFrame"
+        onMouseLeave={() => setNodeHoverType(null)}
+      >
         <svg className="mapSvg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
           {edges.map((e, idx) => (
             <line
@@ -271,7 +280,11 @@ export function OverworldScreen(props: {
               }}
               disabled={!canClick(n)}
               title={`${n.type} • Depth ${n.depth}`}
-              onMouseEnter={() => hoverSfx()}
+              onMouseEnter={() => {
+                hoverSfx();
+                setNodeHoverType(n.type);
+              }}
+              onMouseLeave={() => setNodeHoverType(null)}
               onClick={() => {
                 if (isStart) props.onClickStart();
                 else props.onOpenNode(n);

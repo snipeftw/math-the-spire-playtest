@@ -491,7 +491,7 @@ function EventNodeScreen(props: {
         {
           id: "take_contagion",
           label: "Take Contagion",
-          hint: "Gain Contagion • Add permanent Infestation.",
+          hint: "Gain Contagion • Add Infestation.",
           disabled: hasContagion,
           disabledReason: hasContagion ? "You already have Contagion." : "",
           tags: ["🧪 Supply", "🃏 Negative"],
@@ -499,7 +499,7 @@ function EventNodeScreen(props: {
         {
           id: "take_toxic_booster",
           label: "Take Toxic Booster",
-          hint: "Gain Toxic Booster • Add permanent Radiation.",
+          hint: "Gain Toxic Booster • Add Radiation.",
           disabled: hasToxic,
           disabledReason: hasToxic ? "You already have Toxic Booster." : "",
           tags: ["🧪 Supply", "🃏 Negative"],
@@ -529,7 +529,7 @@ function EventNodeScreen(props: {
         {
           id: "rip_it_out",
           label: "Rip it out",
-          hint: "Gain Battery Pack • Take 15 damage • Add permanent Radiation.",
+          hint: "Gain Battery Pack • Take 15 damage • Add Radiation.",
           disabled: hasBattery,
           disabledReason: hasBattery ? "You already have a Battery Pack." : "",
           tags: ["⚠️ Risk", "🧪 Supply", "🃏 Negative"],
@@ -537,7 +537,7 @@ function EventNodeScreen(props: {
         {
           id: "overclock_it",
           label: "Overclock it",
-          hint: "Gain Overclock • Add permanent Radiation.",
+          hint: "Gain Overclock • Add Radiation.",
           disabled: false,
           disabledReason: "",
           tags: ["⚡ Card", "🃏 Negative"],
@@ -576,7 +576,7 @@ function EventNodeScreen(props: {
         {
           id: "skip",
           label: "Skip practice",
-          hint: "Gain 50 gold • Add a permanent Curse.",
+          hint: "Gain 50 gold • Add a Curse.",
           disabled: false,
           disabledReason: "",
           tags: ["💰 Gold", "🧟 Negative"],
@@ -686,7 +686,7 @@ function EventNodeScreen(props: {
         {
           id: "forge_signature",
           label: "Forge Signature",
-          hint: hasPerfect ? "Gain 100 gold (Perfect Record blocks negatives)." : "Gain 100 gold • Add 2 permanent negatives.",
+          hint: hasPerfect ? "Gain 100 gold (Perfect Record blocks negatives)." : "Gain 100 gold • Add 2 negatives.",
           disabled: false,
           disabledReason: "",
           tags: ["💰 Gold", "🃏 Negative"],
@@ -993,9 +993,9 @@ return (ev?.choices ?? []).map((c) => ({
         case "trade_deodorant":
           return { note: "Full heal." };
         case "take_contagion":
-          return { supplies: ["sup_poison_spreads"], cards: ["neg_infestation_perm"], note: "Gain Contagion and add permanent Infestation." };
+          return { supplies: ["sup_poison_spreads"], cards: ["neg_infestation_perm"], note: "Gain Contagion and add Infestation." };
         case "take_toxic_booster":
-          return { supplies: ["sup_poison_double_damage"], cards: ["neg_radiation_perm"], note: "Gain Toxic Booster and add permanent Radiation." };
+          return { supplies: ["sup_poison_double_damage"], cards: ["neg_radiation_perm"], note: "Gain Toxic Booster and add Radiation." };
         case "leave":
           return { note: "Take 5 damage." };
       }
@@ -1009,7 +1009,7 @@ return (ev?.choices ?? []).map((c) => ({
         case "rip_it_out":
           return { supplies: ["sup_energy_carryover"], cards: ["neg_radiation_perm"], note: "Take 15 damage." };
         case "overclock_it":
-          return { cards: ["skl_overclock", "neg_radiation_perm"], note: "Gain Overclock and add permanent Radiation." };
+          return { cards: ["skl_overclock", "neg_radiation_perm"], note: "Gain Overclock and add Radiation." };
         case "leave":
           return { note: "Exit gate: wrong answer — take 5 damage." };
       }
@@ -1023,7 +1023,7 @@ return (ev?.choices ?? []).map((c) => ({
           // Costs gold; keep the hover preview focused on what you gain.
           return { cards: ["blk_dig_in"], note: "Gain Dig In." };
         case "skip":
-          return { cards: ["neg_curse"], note: "Gain 50 gold.\nAdd Curse (permanent)." };
+          return { cards: ["neg_curse"], note: "Gain 50 gold.\nAdd Curse." };
         case "leave":
           return { note: "Exit gate: wrong answer — take 5 damage." };
       }
@@ -1067,7 +1067,7 @@ return (ev?.choices ?? []).map((c) => ({
             ? { note: "Gain 100 gold.\nPerfect Record blocks the consequences." }
             : {
                 cards: ["neg_curse", "neg_infestation_perm", "neg_radiation_perm", "neg_pop_quiz"],
-                note: "Gain 100 gold.\nAdd 2 random permanent negatives (confirm).",
+                note: "Gain 100 gold.\nAdd 2 random negatives (confirm).",
               };
         case "leave":
           return { note: "Take 5 damage." };

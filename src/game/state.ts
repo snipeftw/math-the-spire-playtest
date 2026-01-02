@@ -2379,7 +2379,7 @@ Something hitches a ride in your deck… confirm the card added.`,
                 `You bottle the nasty sample and label it like a true menace.
 
 🦠 Gained Contagion.
-🃏 Added permanent Infestation.`,
+🃏 Added Infestation.`,
             } as any,
           };
         }
@@ -2421,7 +2421,7 @@ Your deck feels heavier… confirm the card added.`,
                 `You snag the unlabeled vial marked ‘TOXIC BOOSTER’ and pocket it.
 
 ☣️ Gained Toxic Booster.
-🃏 Added permanent Radiation.`,
+🃏 Added Radiation.`,
             } as any,
           };
         }
@@ -2563,7 +2563,7 @@ Your deck tingles—confirm the card added.`,
 A shower of sparks snaps across your knuckles.
 
 🔋 Gained Battery Pack.
-🃏 Added permanent Radiation.
+🃏 Added Radiation.
 
 Take ${taken} damage.`,
             } as any,
@@ -2587,7 +2587,7 @@ Take ${taken} damage.`,
                 `You rewire the output by instinct—two clips, a twist, and a dangerous little smile.
 
 ⚡ Gained Overclock.
-🃏 Added permanent Radiation.`,
+🃏 Added Radiation.`,
             } as any,
           };
         }
@@ -2698,7 +2698,7 @@ Take ${taken} damage.`,
               ...ns,
               step: "CARD_PICK",
               pendingCardId: "neg_curse",
-              pendingRewardText: `Gain ${goldGain} gold.\n\n🧟 Add Curse (permanent).`,
+              pendingRewardText: `Gain ${goldGain} gold.\n\n🧟 Add Curse.`,
               pendingCardResultText:
                 `You vanish into the hallway and somehow “find” a forgotten roll of lunch money.
 
@@ -2706,7 +2706,7 @@ Gain ${goldGain} gold.
 
 But the guilt sticks to you like sweat.
 
-🧟 Added Curse (permanent).`,
+🧟 Added Curse.`,
             } as any,
           };
         }
@@ -3067,14 +3067,14 @@ Pay ${paid} gold.` : ""}`,
 The pen feels warm. The stamp feels heavier than it should.
 
 💰 Gain 100 gold.
-🃏 Confirm 2 permanent negatives.`,
+🃏 Confirm 2 negatives.`,
               pendingCardResultText:
                 `You steady your hand and copy a signature you’ve only seen once.
 
 The pen feels warm. The stamp feels heavier than it should.
 
 💰 Gained 100 gold.
-🃏 Added 2 permanent negatives.`,
+🃏 Added 2 negatives.`,
             } as any,
           };
         }

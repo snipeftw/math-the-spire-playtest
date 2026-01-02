@@ -4,25 +4,28 @@
 // Referencing sprites as runtime strings like "/src/assets/..." works in dev,
 // but breaks when you run the built app (the /src folder isn't served).
 //
-// Using import.meta.glob with eager + as:'url' makes Vite bundle the images and
+// Using import.meta.glob with eager + query:'?url' makes Vite bundle the images and
 // gives us stable URLs we can safely store on our SpriteRef objects.
 
 type UrlMap = Record<string, string>;
 
 const characterUrls = import.meta.glob("../assets/characters/*", {
   eager: true,
-  as: "url",
-}) as UrlMap;
+  query: "?url",
+  import: "default",
+}) as unknown as UrlMap;
 
 const enemyUrls = import.meta.glob("../assets/enemies/*", {
   eager: true,
-  as: "url",
-}) as UrlMap;
+  query: "?url",
+  import: "default",
+}) as unknown as UrlMap;
 
 const eventUrls = import.meta.glob("../assets/events/*", {
   eager: true,
-  as: "url",
-}) as UrlMap;
+  query: "?url",
+  import: "default",
+}) as unknown as UrlMap;
 
 function pick(map: UrlMap, relPathFromHere: string): string {
   // Keys in the glob map are relative to THIS file's location.

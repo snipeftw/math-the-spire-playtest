@@ -193,12 +193,12 @@ export const EVENTS: EventDef[] = [
       {
         id: "take_contagion",
         label: "Take Contagion",
-        hint: "Gain Contagion • Add permanent Infestation.",
+        hint: "Gain Contagion • Add Infestation.",
       },
       {
         id: "take_toxic_booster",
         label: "Take Toxic Booster",
-        hint: "Gain Toxic Booster • Add permanent Radiation.",
+        hint: "Gain Toxic Booster • Add Radiation.",
       },
       {
         id: "leave",
@@ -225,12 +225,12 @@ export const EVENTS: EventDef[] = [
       {
         id: "rip_it_out",
         label: "Rip it out",
-        hint: "Gain Battery Pack • Take 15 damage • Add permanent Radiation.",
+        hint: "Gain Battery Pack • Take 15 damage • Add Radiation.",
       },
       {
         id: "overclock_it",
         label: "Overclock it",
-        hint: "Gain Overclock • Add permanent Radiation.",
+        hint: "Gain Overclock • Add Radiation.",
       },
       {
         id: "leave",
@@ -263,7 +263,7 @@ export const EVENTS: EventDef[] = [
       {
         id: "skip",
         label: "Skip practice",
-        hint: "Gain 50 gold • Add a permanent Curse.",
+        hint: "Gain 50 gold • Add a Curse.",
       },
       {
         id: "leave",
@@ -354,7 +354,7 @@ export const EVENTS: EventDef[] = [
       {
         id: "forge_signature",
         label: "Forge Signature",
-        hint: "Gain 100 gold • Add 2 permanent negatives.",
+        hint: "Gain 100 gold • Add 2 negatives.",
       },
       {
         id: "leave",

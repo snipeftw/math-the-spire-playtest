@@ -241,7 +241,7 @@ const lunchOffers = useMemo(() => {
     }, 100);
   }
 
-  const stepTitles = ["Character", "Deck", "School Supply", "Lunch"] as const;
+  const stepTitles = ["Character", "Deck", "School Supply", "Consumables"] as const;
 
   const Progress = (
     <div
@@ -263,8 +263,8 @@ const lunchOffers = useMemo(() => {
         Supply <strong>{supplyId ? "✓" : "—"}</strong>
       </span>
 
-      <span className={"badge " + (lunchItemId ? "good" : "")}>
-        Lunch <strong>{lunchItemId ? "✓" : "—"}</strong>
+      <span className={"badge " + (lunchItemId ? "good" : "")}> 
+        Consumables <strong>{lunchItemId ? "✓" : "—"}</strong>
       </span>
 
       {teacherUnlocked && (
@@ -324,7 +324,7 @@ const lunchOffers = useMemo(() => {
       <div className="panel">
         <div style={{ fontSize: 26, fontWeight: 800 }}>Setup</div>
         <div className="muted" style={{ marginTop: 4 }}>
-          Characters are cosmetic only. Cards / Supplies / Lunch will matter in battles.
+          Characters are cosmetic only. Cards / Supplies / Consumables will matter in battles.
         </div>
       </div>
 
@@ -483,7 +483,7 @@ const lunchOffers = useMemo(() => {
             <div>
               <div style={{ fontSize: 18, fontWeight: 800 }}>Build your 10-card starter deck</div>
               <div className="muted" style={{ marginTop: 4 }}>
-                These <strong>20</strong> options are randomized each run. Duplicates can appear.
+                These <strong>20</strong> options are randomized each run.
               </div>
             </div>
 
@@ -593,8 +593,13 @@ const lunchOffers = useMemo(() => {
                   style={{ textAlign: "left", cursor: "pointer" as const }}
                   title={`${s.name} — ${s.desc}`}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ fontWeight: 800 }}>{s.name}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <div style={{ fontSize: 22, width: 28, textAlign: "center" }} aria-hidden>
+                        {(s as any).emoji ?? "🎒"}
+                      </div>
+                      <div style={{ fontWeight: 800 }}>{s.name}</div>
+                    </div>
                     <div style={{ fontSize: 18 }}>{active ? "✅" : ""}</div>
                   </div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>{s.desc}</div>
@@ -605,10 +610,10 @@ const lunchOffers = useMemo(() => {
         </div>
       )}
 
-      {/* STEP 4: LUNCH */}
+      {/* STEP 4: CONSUMABLES */}
       {step === 3 && (
         <div className="panel" style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>Pack your lunch</div>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>Choose your consumable</div>
           <div className="muted" style={{ marginTop: 4 }}>Pick 1 consumable (later you can carry up to 3).</div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginTop: 12 }}>
@@ -631,8 +636,13 @@ const lunchOffers = useMemo(() => {
                   style={{ textAlign: "left", cursor: "pointer" as const }}
                   title={`${c.name} — ${c.desc}`}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ fontWeight: 800 }}>{c.name}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <div style={{ fontSize: 22, width: 28, textAlign: "center" }} aria-hidden>
+                        {(c as any).emoji ?? "🍎"}
+                      </div>
+                      <div style={{ fontWeight: 800 }}>{c.name}</div>
+                    </div>
                     <div style={{ fontSize: 18 }}>{active ? "✅" : ""}</div>
                   </div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>{c.desc}</div>
