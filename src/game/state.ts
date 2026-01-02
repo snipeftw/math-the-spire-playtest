@@ -4609,10 +4609,24 @@ Take ${taken} damage.` : ""}`,
       if (idx < 0) return state;
 
       const isWater = action.consumableId === "con_water";
+      const isSandwich = action.consumableId === "con_sandwich";
 
       // ---- Out of battle: only allow Water (max HP) ----
       if (state.screen !== "BATTLE" || !state.battle) {
-        if (!isWater) return state;
+        if (!isWater && !isSandwich) return state;
+
+        // Sandwich: simple heal (does not increase max HP)
+        if (isSandwich) {
+          const beforeHP = Math.max(0, Math.floor(state.hp ?? 0));
+          const maxHP = Math.max(1, Math.floor(state.maxHp ?? 1));
+          const afterHP = Math.min(maxHP, beforeHP + 12);
+          inv.splice(idx, 1);
+          return {
+            ...state,
+            consumables: inv,
+            hp: afterHP,
+          };
+        }
 
         const beforeMax = Math.max(1, Math.floor(state.maxHp ?? 1));
         const beforeHP = Math.max(0, Math.floor(state.hp ?? 0));

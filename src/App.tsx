@@ -1618,16 +1618,18 @@ export default function App() {
     const questionOpen = inBattle && !!b && !!b.awaiting;
     const isAnswerKey = consumableModalId === "con_answer_key";
     const isWater = consumableModalId === "con_water";
+    const isSandwich = consumableModalId === "con_sandwich";
     const isTrashBin = consumableModalId === "con_trash_bin";
 
     const canUse =
       (isWater && !inBattle) ||
+      (isSandwich && !inBattle) ||
       (isTrashBin && !inBattle) ||
       (inBattle && !!b && !battleOver && (!questionOpen || isAnswerKey || isWater));
 
     let reason = "";
-    if (!inBattle && !isWater && !isTrashBin) reason = "Consumables can only be used during battle.";
-    else if (!inBattle && (isWater || isTrashBin)) reason = "";
+    if (!inBattle && !isWater && !isSandwich && !isTrashBin) reason = "Consumables can only be used during battle.";
+    else if (!inBattle && (isWater || isSandwich || isTrashBin)) reason = "";
     else if (battleOver) reason = "Battle is over.";
     else if (questionOpen && !isAnswerKey && !isWater) reason = "Can't use consumables while a question is open (except Answer Key).";
 

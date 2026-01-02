@@ -2845,6 +2845,49 @@ function ShopNodeScreen(props: {
     null | { kind: ShopItemKind; id: string; price: number; title: string; desc: string }
   >(null);
 
+  // Floating tooltip for shop (uses a portal so it's never clipped/stacked under shop panels)
+  const [floatingTip, setFloatingTip] = useState<null | { text: string; x: number; y: number }>(null);
+  const tipNode = floatingTip
+    ? (() => {
+        const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+        const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+
+        const maxW = 340;
+        const pad = 12;
+
+        let left = floatingTip.x + 14;
+        let top = floatingTip.y + 14;
+
+        if (left + maxW + pad > vw) left = Math.max(pad, vw - maxW - pad);
+        if (top + 140 + pad > vh) top = Math.max(pad, vh - 140 - pad);
+
+        return createPortal(
+          <div
+            style={{
+              position: "fixed",
+              left,
+              top,
+              zIndex: 100000,
+              pointerEvents: "none",
+              maxWidth: maxW,
+              padding: "10px 12px",
+              borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.18)",
+              background: "rgba(15,18,28,0.92)",
+              boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
+              color: "rgba(255,255,255,0.92)",
+              fontSize: 12,
+              lineHeight: 1.35,
+              whiteSpace: "normal",
+            }}
+          >
+            {floatingTip.text}
+          </div>,
+          document.body
+        );
+      })()
+    : null;
+
   const BuyConfirmModal = !pendingBuy ? null : (
     <div
       onClick={() => setPendingBuy(null)}
@@ -3308,12 +3351,16 @@ function ShopNodeScreen(props: {
                       key={o.id}
                       className={"badge" + (bought ? "" : "")}
                       title={tip}
-                      data-tip={tip}
-                      onMouseEnter={() => {
+                      onMouseEnter={(e) => {
                         try {
                           sfx.cardHover();
                         } catch {}
+                        setFloatingTip({ text: tip, x: e.clientX, y: e.clientY });
                       }}
+                      onMouseMove={(e) => {
+                        setFloatingTip((prev) => (prev ? { ...prev, x: e.clientX, y: e.clientY } : prev));
+                      }}
+                      onMouseLeave={() => setFloatingTip(null)}
                       onClick={() => {
                         if (bought) return;
                         if (consumablesFull) {
@@ -3398,12 +3445,16 @@ function ShopNodeScreen(props: {
                       key={o.id}
                       className="badge"
                       title={tip}
-                      data-tip={tip}
-                      onMouseEnter={() => {
+                      onMouseEnter={(e) => {
                         try {
                           sfx.cardHover();
                         } catch {}
+                        setFloatingTip({ text: tip, x: e.clientX, y: e.clientY });
                       }}
+                      onMouseMove={(e) => {
+                        setFloatingTip((prev) => (prev ? { ...prev, x: e.clientX, y: e.clientY } : prev));
+                      }}
+                      onMouseLeave={() => setFloatingTip(null)}
                       onClick={() => {
                         if (bought) return;
                         if (!afford) {
@@ -3547,6 +3598,8 @@ function ShopNodeScreen(props: {
         >
           Leave Shop
         </button>
+
+        {tipNode}
       </div>
     </div>
   );
