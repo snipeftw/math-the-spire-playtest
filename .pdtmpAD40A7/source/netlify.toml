@@ -1,0 +1,13 @@
+[build]
+  command = "npm ci --include=optional && npm run build"
+  publish = "dist"
+
+# Ensure client-side routing works (if you ever add URL routes).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[build.environment]
+  # Vite 7 requires Node.js 20.19+ (or 22.12+).
+  NODE_VERSION = "20.19.0"
