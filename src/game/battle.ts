@@ -2519,7 +2519,9 @@ export function stepEnemyTurn(state: BattleState, rng: RNG): BattleState {
     try {
       const enemies2 = (next.enemies ?? []).map((e: any) => {
         const st = Array.isArray(e?.statuses) ? (e.statuses as any[]) : [];
-        const nextSt = (st as any[]).filter((s: any) => !["weak", "vulnerable"].includes(String(s?.id ?? "")));
+        let nextSt: any = st;
+        nextSt = removeOneStack(nextSt, "weak");
+        nextSt = removeOneStack(nextSt, "vulnerable");
         return { ...e, statuses: nextSt };
       });
       next = { ...next, enemies: enemies2 };

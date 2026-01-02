@@ -648,7 +648,7 @@ export const ENCOUNTER_POOL_CHALLENGE_HARD: EncounterDef[] = [
         { kind: "image", src: enemyImg("Mecha Pencil.webp"), alt: "Mecha Pencil" },
         {
           sequence: [
-            { kind: "ADD_NEGATIVE_CARD", cardId: "neg_curse" },
+            { kind: "ADD_NEGATIVE_CARD", cardId: "neg_temp_curse" },
             [{ kind: "ATTACK", dmg: 10 }, { kind: "BLOCK", block: 10 }],
             { kind: "ERASE_BUFFS" },
             [{ kind: "ATTACK", dmg: 10 }, { kind: "BLOCK", block: 10 }],
@@ -692,8 +692,7 @@ export const BOSS_ENCOUNTER: EncounterDef = {
       {
         sequence: [
           { kind: "ATTACK", dmg: 12 },
-          { kind: "DEBUFF", statusId: "weak", stacks: 9 },
-          { kind: "DEBUFF", statusId: "vulnerable", stacks: 9 },
+          [{ kind: "DEBUFF", statusId: "weak", stacks: 9 }, { kind: "DEBUFF", statusId: "vulnerable", stacks: 9 }],
           { kind: "ATTACK", dmg: 7, hits: 2 },
           { kind: "DEBUFF", statusId: "poison", stacks: 4 },
           { kind: "EXHAUST_RANDOM_CARD" },

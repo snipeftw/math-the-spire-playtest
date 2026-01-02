@@ -1120,7 +1120,10 @@ export function reducer(state: GameState, action: Action): GameState {
       const deck = (state.setup.deckCardIds ?? []).slice();
       const idx = deck.indexOf(action.cardId);
       if (idx < 0) return state;
-      deck[idx] = upgradeCardId(deck[idx]);
+      const before = deck[idx];
+      const upgraded = upgradeCardId(before);
+      if (upgraded === before) return state;
+      deck[idx] = upgraded;
       return {
         ...state,
         setup: { ...state.setup, deckCardIds: deck },
@@ -4664,7 +4667,8 @@ Take ${taken} damage.` : ""}`,
 
     case "DEBUG_ADD_ALL_CONSUMABLES": {
       const allIds = CONSUMABLES_10.map((c) => c.id);
-      return { ...state, consumables: Array.from(new Set([...(state.consumables ?? []), ...allIds])) };
+      const merged = Array.from(new Set([...(state.consumables ?? []), ...allIds]));
+      return { ...state, consumables: merged.slice(0, 3) };
     }
     case "DEBUG_CLEAR_CONSUMABLES": {
       return { ...state, consumables: [] };

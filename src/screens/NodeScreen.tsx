@@ -1152,6 +1152,8 @@ return (ev?.choices ?? []).map((c) => ({
     const rarity = String(def?.rarity ?? "Common").toLowerCase();
     const title = `${def?.name ?? cid}\n${cardDescForUi(def as any)}${(def as any)?.exhaust ? `\n${EXHAUST_TOOLTIP}` : ""}\nRarity: ${String(def?.rarity ?? "Common")}`;
     const isNeg = String(cid ?? "").startsWith("neg_");
+    const upgradable = upgradeCardId(cid) !== cid;
+    const interactive = node.step === "UPGRADE_PICK" && upgradable;
 
     return (
       <button
@@ -3635,6 +3637,8 @@ function RestNodeScreen(props: {
     const rarity = String(def?.rarity ?? "Common").toLowerCase();
     const title = `${def?.name ?? cid}\n${cardDescForUi(def as any)}${(def as any)?.exhaust ? `\n${EXHAUST_TOOLTIP}` : ""}\nRarity: ${String(def?.rarity ?? "Common")}`;
     const isNeg = String(cid ?? "").startsWith("neg_");
+    const upgradable = upgradeCardId(cid) !== cid;
+    const interactive = canUpgrade && upgradable;
 
     return (
       <button
@@ -3650,13 +3654,13 @@ function RestNodeScreen(props: {
           flexDirection: "column",
           justifyContent: "space-between",
           textAlign: "left",
-          cursor: opts?.draggable ? "grab" : "default",
-          opacity: opts?.draggable === false ? 0.6 : 1,
+          cursor: opts?.draggable && interactive ? "grab" : interactive ? "pointer" : "default",
+          opacity: !interactive ? 0.55 : opts?.draggable === false ? 0.6 : 1,
         }}
         title={title}
-        draggable={!!opts?.draggable}
+        draggable={!!opts?.draggable && interactive}
         onDragStart={(e) => {
-          if (!opts?.draggable) return;
+          if (!opts?.draggable || !interactive) return;
           try {
             sfx.click();
           } catch {}
@@ -3669,7 +3673,7 @@ function RestNodeScreen(props: {
           } catch {}
         }}
         onClick={() => {
-          if (!canUpgrade) return;
+          if (!interactive) return;
           try {
             sfx.click();
           } catch {}
@@ -3956,14 +3960,14 @@ function RestNodeScreen(props: {
                 </button>
                 <button
                   className="btn primary"
-                  disabled={!canUpgrade || !pickedBaseId}
+                  disabled={!canUpgrade || !pickedBaseId || pickedUpgradedId === pickedBaseId}
                   onMouseEnter={() => {
                     try {
                       sfx.cardHover();
                     } catch {}
                   }}
                   onClick={() => {
-                    if (!canUpgrade || !pickedBaseId) return;
+                    if (!canUpgrade || !pickedBaseId || pickedUpgradedId === pickedBaseId) return;
                     try {
                       sfx.hammer();
                     } catch {}
