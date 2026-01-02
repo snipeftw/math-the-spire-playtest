@@ -7,17 +7,41 @@ import type { RunMap, NodeType } from "./map";
 import type { BattleState, SpriteRef } from "./battle";
 import { startBattle as startBattleCore } from "./battle";
 import { encounterToEnemyStates, pickEncounterForDepth, ENCOUNTER_POOL_EASY_5, ENCOUNTER_POOL_MED_5, ENCOUNTER_POOL_HARD_5, ENCOUNTER_POOL_CHALLENGE_EASY, ENCOUNTER_POOL_CHALLENGE_MED, ENCOUNTER_POOL_CHALLENGE_HARD, BOSS_ENCOUNTER } from "../content/enemies";
-import { BASE_CARDS, BASE_CARD_IDS, UPGRADED_CARDS, upgradeCardId } from "../content/cards";
+import { BASE_CARDS, BASE_CARD_IDS, UPGRADED_CARDS, NEGATIVE_CARDS, upgradeCardId } from "../content/cards";
 import { EVENTS } from "../content/events";
 
 const BASE_CARD_BY_ID = new Map(BASE_CARDS.map((c) => [c.id, c] as const));
 const UPGRADED_CARD_BY_ID = new Map(UPGRADED_CARDS.map((c) => [c.id, c] as const));
+const NEGATIVE_CARD_BY_ID = new Map(NEGATIVE_CARDS.map((c) => [c.id, c] as const));
+const NEGATIVE_CARD_IDS = new Set(NEGATIVE_CARDS.map((c) => c.id));
+const NEGATIVE_CARD_BY_ID = new Map(NEGATIVE_CARDS.map((c) => [c.id, c] as const));
+const NEGATIVE_CARD_ID_SET = new Set<string>(NEGATIVE_CARDS.map((c) => String(c.id)));
 
 import { CONSUMABLES_10 } from "../content/consumables";
 import { SUPPLIES_POOL_10 } from "../content/supplies";
 
 const CONSUMABLE_BY_ID = new Map(CONSUMABLES_10.map((c) => [c.id, c] as const));
 const SUPPLY_BY_ID = new Map(SUPPLIES_POOL_10.map((s) => [s.id, s] as const));
+
+const PERFECT_RECORD_SUPPLY_ID = "sup_no_negative_cards";
+
+function getAllSupplyIdsForState(state: any): string[] {
+  const out = new Set<string>();
+  for (const id of (state?.currentSupplyIds ?? []) as string[]) if (id) out.add(id);
+  for (const id of (state?.setup?.supplyIds ?? []) as string[]) if (id) out.add(id);
+  const legacy = state?.setup?.supplyId;
+  if (legacy) out.add(String(legacy));
+  return Array.from(out);
+}
+
+function stateHasSupply(state: any, supplyId: string): boolean {
+  return getAllSupplyIdsForState(state).includes(supplyId);
+}
+
+function isNegativeCardId(cardId: string): boolean {
+  const id = String(cardId ?? "");
+  return id.startsWith("neg_") || NEGATIVE_CARD_IDS.has(id);
+}
 
 import { tryUseConsumableInBattle } from "./consumables";
 import { applySupplyToGoldGain, applySupplyPostBattleHeal, applySupplyToNewBattle, applySuppliesToNewBattle, applySuppliesToGoldGain, applySuppliesPostBattleHeal, cardOfferCountForSupply, cardOfferCountForSupplies, upgradeRewardCardId, upgradeRewardCardIdForSupplies, shouldUpgradeRewardCards } from "./supplies";
@@ -1861,16 +1885,25 @@ Take ${taken} damage.`,
 
         if (action.choiceId === "steal_notes") {
           if (!state.setup) return state;
-          const nextDeck = [...(state.setup.deckCardIds ?? []), "neg_pop_quiz"];
+          const hasPerfectRecord = stateHasSupply(state, PERFECT_RECORD_SUPPLY_ID);
+          const deckBase = (state.setup.deckCardIds ?? []).slice();
+          const nextDeck = hasPerfectRecord ? deckBase : [...deckBase, "neg_pop_quiz"];
+
+          const supplyFlashNonce = hasPerfectRecord ? (Number((state as any).supplyFlashNonce ?? 0) + 1) : (state as any).supplyFlashNonce;
+          const supplyFlashIds = hasPerfectRecord ? [PERFECT_RECORD_SUPPLY_ID] : (state as any).supplyFlashIds;
 
           return {
             ...state,
+            supplyFlashNonce,
+            supplyFlashIds,
             setup: { ...state.setup, deckCardIds: nextDeck },
             nodeScreen: {
               ...ns,
               step: "CONSUMABLE_CLAIM",
               pendingRewardText:
-                "You ‘borrow’ a pristine set of notes from the top of a study stack.\n\nGain a Cheat Sheet. Your deck gains a Pop Quiz.",
+                hasPerfectRecord
+                  ? "You ‘borrow’ a pristine set of notes from the top of a study stack.\n\nGain a Cheat Sheet.\n\n🛡️ Perfect Record prevents the Pop Quiz from being added to your deck."
+                  : "You ‘borrow’ a pristine set of notes from the top of a study stack.\n\nGain a Cheat Sheet. Your deck gains a Pop Quiz.",
               pendingConsumableIds: ["con_cheat_sheet"],
               claimedConsumableIds: [],
             },
@@ -3825,6 +3858,12 @@ Take ${taken} damage.` : ""}`,
       if (ns.step !== "CARD_PICK") return state;
       if (!state.setup) return state;
       const cardId = action.cardId;
+      const hasPerfectRecord = stateHasSupply(state, PERFECT_RECORD_SUPPLY_ID);
+      const blockedByPerfectRecord = hasPerfectRecord && isNegativeCardId(cardId);
+
+      const cardDef: any =
+        NEGATIVE_CARD_BY_ID.get(cardId) ?? BASE_CARD_BY_ID.get(cardId) ?? UPGRADED_CARD_BY_ID.get(cardId) ?? null;
+      const cardName = String(cardDef?.name ?? cardId);
       // Only allow the offered cards to be added.
       const offered: string[] = Array.isArray((ns as any).pendingCardIds) && (ns as any).pendingCardIds.length > 0
         ? (ns as any).pendingCardIds
@@ -3842,12 +3881,23 @@ Take ${taken} damage.` : ""}`,
         : [];
 
       // Add the chosen card now. Any queued extras are confirmed one-at-a-time via follow-up CARD_PICK steps.
-      const nextDeckBase = [...(state.setup.deckCardIds ?? []), cardId];
+      const deckBase = (state.setup.deckCardIds ?? []).slice();
+      const nextDeckBase = blockedByPerfectRecord ? deckBase : [...deckBase, cardId];
+
+      const baseText = String((ns as any).pendingCardResultText ?? (ns as any).resultText ?? "");
+      const blockedText = baseText
+        ? `${baseText}\n\n🛡️ Perfect Record prevented ${cardName} from being added to your deck.`
+        : `🛡️ Perfect Record prevented ${cardName} from being added to your deck.`;
+
+      const supplyFlashNonce = blockedByPerfectRecord ? (Number((state as any).supplyFlashNonce ?? 0) + 1) : (state as any).supplyFlashNonce;
+      const supplyFlashIds = blockedByPerfectRecord ? [PERFECT_RECORD_SUPPLY_ID] : (state as any).supplyFlashIds;
 
       if (extraQueue.length > 0) {
         const [nextCardId, ...rest] = extraQueue;
         return {
           ...state,
+          supplyFlashNonce,
+          supplyFlashIds,
           gold: goldNext,
           setup: { ...state.setup, deckCardIds: nextDeckBase },
           nodeScreen: {
@@ -3857,19 +3907,24 @@ Take ${taken} damage.` : ""}`,
             pendingCardIds: undefined,
             pendingGoldGain: undefined,
             pendingExtraCardIds: rest.length ? rest : undefined,
-            pendingRewardText: "Another card is waiting—confirm it.",
+            pendingCardResultText: blockedByPerfectRecord ? blockedText : (ns as any).pendingCardResultText,
+            pendingRewardText: blockedByPerfectRecord
+              ? `${blockedText}\n\nAnother card is waiting—confirm it.`
+              : "Another card is waiting—confirm it.",
           } as any,
         };
       }
 
       return {
         ...state,
+        supplyFlashNonce,
+        supplyFlashIds,
         gold: goldNext,
         setup: { ...state.setup, deckCardIds: nextDeckBase },
         nodeScreen: {
           ...ns,
           step: "RESULT",
-          resultText: ns.pendingCardResultText ?? `Gained ${cardId}.`,
+          resultText: blockedByPerfectRecord ? blockedText : (ns.pendingCardResultText ?? `Gained ${cardName}.`),
           pendingCardId: undefined,
           pendingCardIds: undefined,
           pendingCardResultText: undefined,
@@ -4508,6 +4563,33 @@ Take ${taken} damage.` : ""}`,
           goldClaimed: true,
           consumableClaimed: true,
         },
+      };
+    }
+
+    case "TRASH_BIN_REMOVE_CARD": {
+      // Trash Bin is an out-of-battle consumable that permanently removes a card from the deck.
+      if (state.screen === "BATTLE" && state.battle) return state;
+      if (!state.setup) return state;
+
+      const inv = (state.consumables ?? []).slice();
+      const trashIdx = inv.indexOf("con_trash_bin");
+      if (trashIdx < 0) return state;
+
+      const deck = (state.setup.deckCardIds ?? []).slice();
+      const idx = deck.indexOf(action.cardId);
+      if (idx < 0) return state;
+
+      // Don't allow removing the last card.
+      if (deck.length <= 1) return state;
+
+      deck.splice(idx, 1);
+      // Consume the Trash Bin.
+      inv.splice(trashIdx, 1);
+
+      return {
+        ...state,
+        setup: { ...state.setup, deckCardIds: deck },
+        consumables: inv,
       };
     }
 

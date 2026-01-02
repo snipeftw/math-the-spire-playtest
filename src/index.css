@@ -817,7 +817,8 @@ body.compactMode .entitySprite{
   position: absolute;
   left: 0;
   bottom: calc(100% + 8px);
-  z-index: 50;
+  /* Needs to float above overlapping shop/event panels */
+  z-index: 100000;
   width: max-content;
   max-width: 320px;
   padding: 8px 10px;
@@ -830,6 +831,12 @@ body.compactMode .entitySprite{
   white-space: normal;
   box-shadow: 0 10px 26px rgba(0,0,0,0.45);
   pointer-events: none;
+}
+
+/* Ensure the hovered element itself is above nearby panels so the tooltip isn't trapped in a lower stacking context */
+.statusChip[data-tip]:hover,
+.badge[data-tip]:hover{
+  z-index: 100000;
 }
 
 /* Tooltip for badges (intents, block, etc.) - use same approach as status chips */

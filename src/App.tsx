@@ -691,6 +691,7 @@ export default function App() {
           {(setup?.deckCardIds ?? []).map((cid: string, idx: number) => {
             const def: any = cardById.get(cid);
             const rarity = String(def?.rarity ?? "Common").toLowerCase();
+            const isNeg = String(cid ?? "").startsWith("neg_");
             const pickKey = `${cid}:${idx}`;
             const selected = trashPick === pickKey;
             const title = `${def?.name ?? cid}\n${cardDescForUi(def as any)}${(def as any)?.exhaust ? `\n${EXHAUST_TOOLTIP}` : ""}\nRarity: ${String(def?.rarity ?? "Common")}`;
@@ -698,7 +699,12 @@ export default function App() {
             return (
               <button
                 key={pickKey}
-                className={"handCard panel soft cardTile shopCardTile " + `rarity-${rarity}` + (selected ? " selected" : "")}
+                className={
+                  "handCard panel soft cardTile shopCardTile " +
+                  `rarity-${rarity}` +
+                  (isNeg ? " negativeCard" : "") +
+                  (selected ? " selected" : "")
+                }
                 style={{
                   width: 205,
                   minWidth: 205,
