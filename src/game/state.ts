@@ -1,7 +1,7 @@
 // src/game/state.ts
 import { generateMap } from "./map";
 import { makeRng } from "./rng";
-import { getQuestion, type Question } from "./questions";
+import { getQuestion, type Question, QUESTION_DEDUPE_LIMIT } from "./questions";
 import { pickWeighted, pickWeightedUnique, weightByRarity } from "./weighted";
 import type { RunMap, NodeType } from "./map";
 import type { BattleState, SpriteRef } from "./battle";
@@ -120,6 +120,9 @@ export type GameState = {
 
   // Wrong answers log (questions answered incorrectly during the run)
   wrongAnswerLog: WrongAnswerLogEntry[];
+
+  // Recently-seen question signatures (prevents repeats within a run across battles/events).
+  questionHistorySigs: string[];
 
   // Pending rewards after a battle
   reward?: RewardState | null;
@@ -599,6 +602,7 @@ export const initialState: GameState = {
 
   consumables: [],
   wrongAnswerLog: [],
+  questionHistorySigs: [],
   reward: null,
   rewardNodeId: null,
   lockedNodeIds: [],
@@ -636,6 +640,28 @@ function hashStringToInt(str: string): number {
     h = Math.imul(h, 16777619);
   }
   return h >>> 0;
+}
+
+function pushQuestionHistory(state: GameState, sig: unknown): string[] {
+  const s = String(sig ?? "").trim();
+  if (!s) return (state.questionHistorySigs ?? []).slice(0, QUESTION_DEDUPE_LIMIT);
+  const prev = Array.isArray(state.questionHistorySigs) ? state.questionHistorySigs : [];
+  const next = prev.concat([s]);
+  // Keep only the most recent N to avoid bloating saves.
+  return next.length > QUESTION_DEDUPE_LIMIT ? next.slice(next.length - QUESTION_DEDUPE_LIMIT) : next;
+}
+
+function getQuestionForRun(state: GameState, args: { rng: any; difficulty: 1 | 2 | 3 }): { question: Question; nextHistory: string[] } {
+  const history = Array.isArray(state.questionHistorySigs) ? state.questionHistorySigs : [];
+  const q: any = getQuestion({
+    rng: args.rng,
+    difficulty: args.difficulty,
+    packIds: (state.setup as any)?.questionPackIds ?? undefined,
+    avoidSigs: history,
+  });
+  const sig = String(q?.sig ?? "").trim();
+  const nextHistory = pushQuestionHistory(state, sig);
+  return { question: q as Question, nextHistory };
 }
 
 function rewardGoldForDifficulty(difficulty: 1 | 2 | 3): number {
@@ -845,6 +871,7 @@ export function reducer(state: GameState, action: Action): GameState {
 
         consumables: [],
         wrongAnswerLog: [],
+        questionHistorySigs: [],
         reward: null,
         rewardNodeId: null,
 
@@ -1320,10 +1347,11 @@ if (ns.step !== "INTRO" && !allowHallwayChoose && !allowExamLadderChoose) return
               const depth = state.map?.nodes?.[nodeId]?.depth ?? ns.depth ?? 1;
               const difficulty: 1 | 2 | 3 = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
 
-              const question = getQuestion({ rng: rngQ, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
+              const { question, nextHistory } = getQuestionForRun(state, { rng: rngQ, difficulty });
 
               return {
                 ...state,
+                questionHistorySigs: nextHistory,
                 nodeScreen: {
                   ...nextNodeScreenBase,
                   hallwayPending: pending,
@@ -1834,10 +1862,11 @@ Take ${taken} damage.`,
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:vending:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0xC0FFEE) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
+          const { question, nextHistory } = getQuestionForRun(state, { rng: qRng, difficulty });
 
           return {
             ...state,
+            questionHistorySigs: nextHistory,
             nodeScreen: {
               ...ns,
               step: "QUESTION_GATE",
@@ -1962,10 +1991,11 @@ Heal ${healed}. Lose ${loss} gold.`,
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:library:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0xABCD) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
+          const { question, nextHistory } = getQuestionForRun(state, { rng: qRng, difficulty });
 
           return {
             ...state,
+            questionHistorySigs: nextHistory,
             nodeScreen: {
               ...ns,
               step: "QUESTION_GATE",
@@ -2165,10 +2195,11 @@ Gain 75 gold. Added to deck: ${negName(negId)}.`,
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:sub:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0x5151) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
+          const { question, nextHistory } = getQuestionForRun(state, { rng: qRng, difficulty });
 
           return {
             ...state,
+            questionHistorySigs: nextHistory,
             nodeScreen: {
               ...ns,
               step: "QUESTION_GATE",
@@ -2607,10 +2638,11 @@ Take ${taken} damage.`,
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:charging:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0xC0FFEE) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
+          const { question, nextHistory } = getQuestionForRun(state, { rng: qRng, difficulty });
 
           return {
             ...state,
+            questionHistorySigs: nextHistory,
             nodeScreen: {
               ...ns,
               step: "QUESTION_GATE",
@@ -2725,10 +2757,11 @@ But the guilt sticks to you like sweat.
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:practice:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0xC0FFEE) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
+          const { question, nextHistory } = getQuestionForRun(state, { rng: qRng, difficulty });
 
           return {
             ...state,
+            questionHistorySigs: nextHistory,
             nodeScreen: {
               ...ns,
               step: "QUESTION_GATE",
@@ -2841,10 +2874,11 @@ But the guilt sticks to you like sweat.
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:weight:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0xC0FFEE) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
+          const { question, nextHistory } = getQuestionForRun(state, { rng: qRng, difficulty });
 
           return {
             ...state,
+            questionHistorySigs: nextHistory,
             nodeScreen: {
               ...ns,
               step: "QUESTION_GATE",
@@ -2944,10 +2978,11 @@ The fumes burn your throat. Take ${taken} damage.` : ""}`,
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:poison:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0xC0FFEE) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
+          const { question, nextHistory } = getQuestionForRun(state, { rng: qRng, difficulty });
 
           return {
             ...state,
+            questionHistorySigs: nextHistory,
             nodeScreen: {
               ...ns,
               step: "QUESTION_GATE",
@@ -3203,10 +3238,10 @@ The air bites. Take ${taken} damage.`,
         const depth = Number((state.map?.nodes?.[nodeId] as any)?.depth ?? ns.depth ?? 1);
         const difficulty: 1 | 2 | 3 = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
 
-        const makeExamQuestion = (rungIndex1: number): Question => {
+        const makeExamQuestion = (rungIndex1: number, avoidSigs?: string[]): Question => {
           const qSeed = (state.seed ^ hashStringToInt(`event:exam_ladder:${nodeId}:r${rungIndex1}`)) >>> 0;
           const rng = makeRng((qSeed ^ 0xE6A7D3) >>> 0);
-          return getQuestion({ rng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
+          return getQuestion({ rng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined, avoidSigs });
         };
 
         const endWithReward = (correctCount: number, headerText?: string): GameState => {
@@ -3384,9 +3419,11 @@ The air bites. Take ${taken} damage.`,
         // INTRO choices
         if (ns.step === "INTRO") {
           if (action.choiceId === "start") {
-            const q1 = makeExamQuestion(1);
+            const q1 = makeExamQuestion(1, state.questionHistorySigs);
+            const nextHistory = pushQuestionHistory(state, (q1 as any)?.sig);
             return {
               ...state,
+              questionHistorySigs: nextHistory,
               nodeScreen: {
                 ...ns,
                 step: "QUESTION_GATE",
@@ -3433,8 +3470,11 @@ The air bites. Take ${taken} damage.`,
           const nextRung: number = Number(ladder?.nextRung ?? (ladder?.correct ?? 0) + 1);
           if (!nextQ) return state;
 
+          const nextHistory = pushQuestionHistory(state, (nextQ as any)?.sig);
+
           return {
             ...state,
+            questionHistorySigs: nextHistory,
             nodeScreen: {
               ...ns,
               step: "QUESTION_GATE",
@@ -3640,10 +3680,10 @@ The air bites. Take ${taken} damage.`,
         const depth = Number((state.map?.nodes?.[nodeId] as any)?.depth ?? ns.depth ?? 1);
         const difficulty: 1 | 2 | 3 = (ladder.difficulty ?? (depth <= 4 ? 1 : depth <= 9 ? 2 : 3)) as any;
 
-        const makeExamQuestion = (rungIndex1: number): Question => {
+        const makeExamQuestion = (rungIndex1: number, avoidSigs?: string[]): Question => {
           const qSeed = (state.seed ^ hashStringToInt(`event:exam_ladder:${nodeId}:r${rungIndex1}`)) >>> 0;
           const rng = makeRng((qSeed ^ 0xE6A7D3) >>> 0);
-          return getQuestion({ rng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
+          return getQuestion({ rng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined, avoidSigs });
         };
 
         const endWithReward = (count: number, headerText: string): GameState => {
@@ -3785,7 +3825,7 @@ The air bites. Take ${taken} damage.`,
             return endWithReward(5, "✅ Correct. You climb the final rung.");
           }
           const nextRung = newCorrect + 1;
-          const nextQ = makeExamQuestion(nextRung);
+          const nextQ = makeExamQuestion(nextRung, (baseState as any).questionHistorySigs);
           return { ...baseState,
             nodeScreen: {
               ...ns,
@@ -4179,6 +4219,8 @@ Take ${taken} damage.` : ""}`,
             supplyId: legacySupplyId,
             supplyIds,
             questionPackIds: (setup as any)?.questionPackIds ?? undefined,
+            // Prevent repeats across battles/events within the run.
+            questionHistorySigs: (state.questionHistorySigs ?? []).slice(),
             isChallenge,
             runGold: state.gold ?? 0,
           },
@@ -4253,7 +4295,11 @@ Take ${taken} damage.` : ""}`,
       // Don't clear damage/heal events here - let them persist until UI processes them.
       // They'll be cleared in the next BATTLE_UPDATE after popups are spawned.
 
-      let nextState: GameState = { ...state, supplyFlashNonce, supplyFlashIds, battle, hp: battle.playerHP };
+      const histFromBattle: string[] = Array.isArray((battle as any)?.meta?.questionHistorySigs)
+        ? ((battle as any).meta.questionHistorySigs as any[]).map(String).slice(-QUESTION_DEDUPE_LIMIT)
+        : (state.questionHistorySigs ?? []);
+
+      let nextState: GameState = { ...state, supplyFlashNonce, supplyFlashIds, battle, hp: battle.playerHP, questionHistorySigs: histFromBattle };
 
       // Run-wide wrong answer logging (battle questions)
       try {

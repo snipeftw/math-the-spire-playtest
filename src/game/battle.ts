@@ -1,6 +1,6 @@
 // src/game/battle.ts
 import type { RNG } from "./rng";
-import { getQuestion } from "./questions";
+import { getQuestion, QUESTION_DEDUPE_LIMIT } from "./questions";
 import { ALL_CARDS_40ish, type CardDef as CardDefContent } from "../content/cards";
 import { enemyImg } from "../content/assetUrls";
 import { addEnemyStatus, addPlayerStatus, applyEndOfTurnTicks, getStacks, modifyAttackDamage, removeStatus } from "./effects";
@@ -1611,10 +1611,23 @@ export function chooseCard(state: BattleState, rng: RNG, cardId: string): Battle
   }
 
   // Normal card play: spend energy and ask a question.
-  const q = getQuestion({ rng, difficulty: state.difficulty, packIds: (state.meta as any)?.questionPackIds ?? undefined });
+  const meta0: any = state.meta ?? {};
+  const hist0: string[] = Array.isArray(meta0.questionHistorySigs) ? meta0.questionHistorySigs.slice() : [];
+  const q = getQuestion({
+    rng,
+    difficulty: state.difficulty,
+    packIds: (meta0 as any)?.questionPackIds ?? undefined,
+    avoidSigs: hist0,
+  });
+  const sig = (q as any)?.sig;
+  const hist1 = sig ? [...hist0, String(sig)].slice(-QUESTION_DEDUPE_LIMIT) : hist0;
   const next: BattleState = {
     ...state,
     energy: (state.energy ?? 0) - cost,
+    meta: {
+      ...(meta0 as any),
+      questionHistorySigs: hist1,
+    } as any,
     awaiting: {
       cardId,
       question: {
@@ -2661,7 +2674,15 @@ export function stepEnemyTurn(state: BattleState, rng: RNG): BattleState {
       const pendingDmg = Math.max(0, Math.floor(Number(meta0.pendingForcedQuestionDamage ?? 0)));
       const pendingBy = String(meta0.pendingForcedQuestionByEnemyId ?? "");
       if (pendingDmg > 0) {
-        const q = getQuestion({ rng, difficulty: afterDraw.difficulty, packIds: (afterDraw.meta as any)?.questionPackIds ?? undefined });
+        const hist0: string[] = Array.isArray(meta0.questionHistorySigs) ? meta0.questionHistorySigs.slice() : [];
+        const q = getQuestion({
+          rng,
+          difficulty: afterDraw.difficulty,
+          packIds: (afterDraw.meta as any)?.questionPackIds ?? undefined,
+          avoidSigs: hist0,
+        });
+        const sig = (q as any)?.sig;
+        meta0.questionHistorySigs = sig ? [...hist0, String(sig)].slice(-QUESTION_DEDUPE_LIMIT) : hist0;
         meta0.forcedQuestionDamage = pendingDmg;
         meta0.forcedQuestionByEnemyId = pendingBy;
         meta0.pendingForcedQuestionDamage = 0;

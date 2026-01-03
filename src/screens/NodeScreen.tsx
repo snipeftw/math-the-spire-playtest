@@ -31,6 +31,7 @@ type NodeScreenProps = {
   deckCardIds: string[];
   supplyIds: string[];
   consumables: string[];
+  showHints?: boolean;
   onBuy: (kind: ShopItemKind, id: string) => void;
   onShopRefresh?: () => void;
   onRemoveCard?: (cardId: string) => void;
@@ -100,6 +101,7 @@ function EventNodeScreen(props: {
   deckCardIds: string[];
   supplyIds: string[];
   consumables: string[];
+  showHints?: boolean;
   onChoose: (choiceId: string) => void;
   onPickUpgrade: (cardId: string) => void;
   onPickCard: (cardId: string) => void;
@@ -1915,7 +1917,7 @@ return (ev?.choices ?? []).map((c) => ({
                               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                 <div style={{ fontWeight: 900 }}>Answer to negate the penalty</div>
                                 <div style={{ fontSize: 18 }}>{String(quiz.question?.prompt ?? "Solve:")}</div>
-                                {quiz.question?.hint ? (
+                                {props.showHints !== false && quiz.question?.hint ? (
                                   <div className="muted" style={{ fontSize: 12 }}>Hint: {String(quiz.question.hint)}</div>
                                 ) : null}
                                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -4182,6 +4184,7 @@ export function NodeScreen(props: NodeScreenProps) {
         deckCardIds={props.deckCardIds}
         supplyIds={props.supplyIds}
         consumables={props.consumables}
+        showHints={props.showHints}
         onChoose={props.onEventChoose}
         onPickUpgrade={props.onEventPickUpgrade}
         onPickCard={props.onEventPickCard}

@@ -189,6 +189,7 @@ export default function BattleScreen(props: {
   rng: RNG;
   battle: BattleState;
   setup?: SetupSelection | null;
+  showHints?: boolean;
   debugSkipQuestions?: boolean;
   onUpdate: (next: BattleState) => void;
   onEnd: (victory: boolean, goldGained: number, playerHpAfter: number, skipRewards?: boolean) => void;
@@ -2166,7 +2167,7 @@ function onDropPlayZone(e: React.DragEvent) {
               )}
 
               <div style={{ fontSize: 18, marginTop: 10 }}>{awaiting.question.prompt}</div>
-              {awaiting.question.hint && (
+              {props.showHints !== false && awaiting.question.hint && (
                 <div className="muted" style={{ marginTop: 10 }}>
                   Hint: {awaiting.question.hint}
                 </div>
@@ -2544,12 +2545,24 @@ function onDropPlayZone(e: React.DragEvent) {
                     onDragStart={(e) => {
                       if (!playable || awaiting || isOver) return;
 
-                      e.dataTransfer.setData("application/x-hand-index", String(idx));
-                      e.dataTransfer.setData("text/plain", String(idx));
-                      e.dataTransfer.effectAllowed = "move";
+                      try {
+                        // Some browsers can be picky about drag data / drag images.
+                        // If anything here throws, we still want the drag to work.
+                        e.dataTransfer.setData("application/x-hand-index", String(idx));
+                        e.dataTransfer.setData("text/plain", String(idx));
+                        e.dataTransfer.effectAllowed = "move";
 
-                      setRealCardDragImage(e, e.currentTarget as HTMLElement);
-                      setDraggingIdx(idx);
+                        try {
+                          setRealCardDragImage(e, e.currentTarget as HTMLElement);
+                        } catch (err) {
+                          // Fallback: allow browser default drag preview
+                          console.warn("Drag image failed; using default.", err);
+                        }
+
+                        setDraggingIdx(idx);
+                      } catch (err) {
+                        console.error("Drag start failed", err);
+                      }
                     }}
                     onDragEnd={() => {
                       setDraggingIdx(null);

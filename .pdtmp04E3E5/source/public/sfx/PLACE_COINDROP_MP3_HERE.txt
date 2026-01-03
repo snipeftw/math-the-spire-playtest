@@ -1,2 +1,0 @@
-Place your coindrop.mp3 file in this folder and name it exactly: coindrop.mp3
-Vite will serve it at /sfx/coindrop.mp3 and the game will play it when you collect gold.

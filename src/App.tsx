@@ -39,6 +39,8 @@ const BOSS_MUTE_KEY = "math-roguelike-boss-mute";
 
 const COMPACT_MODE_KEY = "math-roguelike-compact-mode";
 
+const SHOW_HINTS_KEY = "math-roguelike-show-hints";
+
 // Run Loadout window position/size persistence
 const LOADOUT_BOX_KEY = "math-the-spire-loadout-box";
 
@@ -112,6 +114,17 @@ function loadCompactMode(): boolean {
   }
 }
 
+function loadShowHints(): boolean {
+  try {
+    const raw = localStorage.getItem(SHOW_HINTS_KEY);
+    // default ON
+    if (raw == null) return true;
+    return raw === "1";
+  } catch {
+    return true;
+  }
+}
+
 function saveSfxVol(v: number) {
   try {
     localStorage.setItem(SFX_VOL_KEY, String(v));
@@ -165,6 +178,12 @@ function saveMusicMute(m: boolean) {
 function saveCompactMode(v: boolean) {
   try {
     localStorage.setItem(COMPACT_MODE_KEY, v ? "1" : "0");
+  } catch {}
+}
+
+function saveShowHints(v: boolean) {
+  try {
+    localStorage.setItem(SHOW_HINTS_KEY, v ? "1" : "0");
   } catch {}
 }
 
@@ -463,6 +482,7 @@ export default function App() {
   const [musicVol, setMusicVol] = useState(loadMusicVol());
   const [musicMute, setMusicMute] = useState(loadMusicMute());
   const [compactMode, setCompactMode] = useState(loadCompactMode());
+  const [showHints, setShowHints] = useState(loadShowHints());
 
   const [showDeck, setShowDeck] = useState(false);
   const [consumableModalId, setConsumableModalId] = useState<string | null>(null);
@@ -1288,6 +1308,27 @@ export default function App() {
                 <span className="badge">
                   Seed <strong>{state.seed}</strong>
                 </span>
+
+                <label
+                  className="badge"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}
+                  title="Toggle hints in question prompts"
+                  onMouseEnter={() => { try { sfx.cardHover(); } catch {} }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showHints}
+                    onChange={(e) => {
+                      const v = e.target.checked;
+                      setShowHints(v);
+                      saveShowHints(v);
+                      try { sfx.click(); } catch {}
+                    }}
+                    style={{ transform: "translateY(1px)" }}
+                  />
+                  Hints <strong>{showHints ? "ON" : "OFF"}</strong>
+                </label>
+
                 <button
                   className="btn btn-sm"
                   onMouseEnter={() => { try { sfx.cardHover(); } catch {} }}
@@ -2070,6 +2111,7 @@ export default function App() {
           deckCardIds={state.setup?.deckCardIds ?? []}
           supplyIds={state.currentSupplyIds ?? []}
           consumables={state.consumables ?? []}
+          showHints={showHints}
           onBuy={(kind, id) => {
             dispatch({ type: "SHOP_BUY", kind: kind as any, id } as any);
           }}
@@ -2178,6 +2220,7 @@ export default function App() {
           rng={rng}
           battle={state.battle}
           setup={state.setup}
+          showHints={showHints}
           debugSkipQuestions={state.debugSkipQuestions ?? false}
           onUpdate={(next: any) => dispatch({ type: "BATTLE_UPDATE", battle: next })}
           onEnd={(victory: boolean, goldGained: number, playerHpAfter: number, skipRewards?: boolean) => {
