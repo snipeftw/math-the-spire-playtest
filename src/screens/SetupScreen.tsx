@@ -7,6 +7,7 @@ import { CONSUMABLES_10 } from "../content/consumables";
 import { makeRng } from "../game/rng";
 import { pickWeighted, pickWeightedUnique, weightByRarity } from "../game/weighted";
 import { sfx } from "../game/sfx";
+import { QUESTION_PACKS } from "../game/questions";
 import type { SetupSelection } from "../game/state";
 import type { CardType, SpriteRef } from "../game/battle";
 
@@ -95,6 +96,9 @@ const lunchOffers = useMemo(() => {
   // NEW: Custom name (only used when custom avatar exists)
   const [customName, setCustomName] = useState<string>("");
 
+  // Question packs (units/lessons) to include in this run
+  const [questionPackIds, setQuestionPackIds] = useState<string[]>(() => QUESTION_PACKS.map((p) => p.id));
+
   // 2) Deck (select 10 tiles from draft list)
   const [cardTypeFilter, setCardTypeFilter] = useState<CardType | "ALL">("ALL");
   const [selectedInstIds, setSelectedInstIds] = useState<string[]>([]);
@@ -132,6 +136,15 @@ const lunchOffers = useMemo(() => {
     });
   }
 
+  function togglePack(packId: string) {
+    setQuestionPackIds((prev) => {
+      const has = prev.includes(packId);
+      const next = has ? prev.filter((x) => x !== packId) : [...prev, packId];
+      if (has) sfx.selectOff(); else sfx.selectOn();
+      return next;
+    });
+  }
+
   function handleUpload(file: File | null) {
     if (!file) return;
     if (!file.type.startsWith("image/")) return;
@@ -146,7 +159,7 @@ const lunchOffers = useMemo(() => {
   }
 
   function canNext(): boolean {
-    if (step === 0) return !!characterId;
+    if (step === 0) return !!characterId && questionPackIds.length > 0;
     if (step === 1) return selectedCount === 10;
     if (step === 2) return !!supplyId;
     if (step === 3) return !!lunchItemId;
@@ -195,6 +208,8 @@ const lunchOffers = useMemo(() => {
       supplyId,
       supplyIds: [supplyId],
       lunchItemId,
+
+      questionPackIds: questionPackIds.slice(),
     });
   }
 
@@ -212,6 +227,7 @@ const lunchOffers = useMemo(() => {
     setCharacterId(char);
     setCustomAvatarDataUrl(null);
     setCustomName(""); // NEW
+    setQuestionPackIds(QUESTION_PACKS.map((p) => p.id));
     setSelectedInstIds(insts);
     setSupplyId(supply);
     setLunchItemId(lunch);
@@ -237,6 +253,8 @@ const lunchOffers = useMemo(() => {
         supplyId: supply,
         supplyIds: [supply],
         lunchItemId: lunch,
+
+        questionPackIds: QUESTION_PACKS.map((p) => p.id),
       });
     }, 100);
   }
@@ -267,6 +285,14 @@ const lunchOffers = useMemo(() => {
         Consumables <strong>{lunchItemId ? "✓" : "—"}</strong>
       </span>
 
+      <span className={"badge " + (questionPackIds.length > 0 ? "good" : "")}> 
+        Packs <strong>{questionPackIds.length}</strong>
+      </span>
+
+      <span className={"badge " + (questionPackIds.length > 0 ? "good" : "")}> 
+        Packs <strong>{questionPackIds.length}</strong>
+      </span>
+
       {teacherUnlocked && (
         <button
           type="button"
@@ -295,7 +321,11 @@ const lunchOffers = useMemo(() => {
       }}
     >
       <div className="muted" style={{ fontSize: 12 }}>
-        {step === 1 && selectedCount !== 10 ? "Pick 10 cards to continue." : " "}
+        {step === 0 && questionPackIds.length === 0
+          ? "Choose at least one Question Pack to continue."
+          : step === 1 && selectedCount !== 10
+            ? "Pick 10 cards to continue."
+            : " "}
       </div>
 
       <div className="row">
@@ -472,6 +502,61 @@ const lunchOffers = useMemo(() => {
                 </div>
               </>
             )}
+          </div>
+
+          <div className="panel soft" style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 18, fontWeight: 800 }}>Question packs</div>
+            <div className="muted" style={{ marginTop: 4 }}>
+              Choose which lesson questions can appear during battles and events.
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gap: 10,
+                marginTop: 12,
+              }}
+            >
+              {QUESTION_PACKS.map((p) => {
+                const checked = questionPackIds.includes(p.id);
+                return (
+                  <label
+                    key={p.id}
+                    className={"panel soft"}
+                    style={{
+                      cursor: "pointer",
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "flex-start",
+                      userSelect: "none",
+                      border: checked ? "1px solid rgba(100,255,180,0.45)" : "1px solid rgba(255,255,255,0.12)",
+                      boxShadow: checked ? "0 0 0 1px rgba(100,255,180,0.25) inset" : undefined,
+                    }}
+                    onMouseEnter={() => sfx.cardHover()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => togglePack(p.id)}
+                      style={{ marginTop: 3 }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 800 }}>{p.label}</div>
+                      {p.description ? (
+                        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                          {p.description}
+                        </div>
+                      ) : null}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+              {questionPackIds.length === 0 ? "Select at least one pack to continue." : " "}
+            </div>
           </div>
         </div>
       )}

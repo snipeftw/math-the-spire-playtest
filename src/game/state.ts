@@ -67,6 +67,10 @@ export type SetupSelection = {
   supplyId: string | null; // Legacy: kept for backwards compatibility, use supplyIds instead
   supplyIds: string[]; // Multiple supplies (new system)
   lunchItemId: string | null;
+
+  // Question packs selected on the Setup screen (ex: ["legacy", "u8_1"]).
+  // If empty/undefined, the game will fall back to all packs.
+  questionPackIds?: string[];
 };
 
 export type RewardState = {
@@ -1316,7 +1320,7 @@ if (ns.step !== "INTRO" && !allowHallwayChoose && !allowExamLadderChoose) return
               const depth = state.map?.nodes?.[nodeId]?.depth ?? ns.depth ?? 1;
               const difficulty: 1 | 2 | 3 = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
 
-              const question = getQuestion({ rng: rngQ, difficulty });
+              const question = getQuestion({ rng: rngQ, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
 
               return {
                 ...state,
@@ -1476,6 +1480,7 @@ if (ns.step !== "INTRO" && !allowHallwayChoose && !allowExamLadderChoose) return
                     ...(battle as any).meta,
                     supplyId: legacySupplyId,
                     supplyIds,
+                    questionPackIds: (state.setup as any)?.questionPackIds ?? undefined,
                     isChallenge,
                     runGold: state.gold ?? 0,
                     skipRewards: true,
@@ -1829,7 +1834,7 @@ Take ${taken} damage.`,
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:vending:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0xC0FFEE) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty });
+          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
 
           return {
             ...state,
@@ -1957,7 +1962,7 @@ Heal ${healed}. Lose ${loss} gold.`,
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:library:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0xABCD) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty });
+          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
 
           return {
             ...state,
@@ -2160,7 +2165,7 @@ Gain 75 gold. Added to deck: ${negName(negId)}.`,
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:sub:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0x5151) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty });
+          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
 
           return {
             ...state,
@@ -2258,6 +2263,7 @@ Gain 75 gold. Added to deck: ${negName(negId)}.`,
                 ...(battle as any).meta,
                 supplyId: legacySupplyId,
                 supplyIds,
+                questionPackIds: (setup as any)?.questionPackIds ?? undefined,
                 isChallenge,
                 runGold: state.gold ?? 0,
               },
@@ -2601,7 +2607,7 @@ Take ${taken} damage.`,
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:charging:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0xC0FFEE) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty });
+          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
 
           return {
             ...state,
@@ -2719,7 +2725,7 @@ But the guilt sticks to you like sweat.
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:practice:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0xC0FFEE) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty });
+          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
 
           return {
             ...state,
@@ -2835,7 +2841,7 @@ But the guilt sticks to you like sweat.
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:weight:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0xC0FFEE) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty });
+          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
 
           return {
             ...state,
@@ -2938,7 +2944,7 @@ The fumes burn your throat. Take ${taken} damage.` : ""}`,
           const difficulty = depth <= 4 ? 1 : depth <= 9 ? 2 : 3;
           const qSeed = (state.seed ^ hashStringToInt(`event:gate:poison:${nodeId}`)) >>> 0;
           const qRng = makeRng((qSeed ^ 0xC0FFEE) >>> 0);
-          const question = getQuestion({ rng: qRng, difficulty });
+          const question = getQuestion({ rng: qRng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
 
           return {
             ...state,
@@ -3200,7 +3206,7 @@ The air bites. Take ${taken} damage.`,
         const makeExamQuestion = (rungIndex1: number): Question => {
           const qSeed = (state.seed ^ hashStringToInt(`event:exam_ladder:${nodeId}:r${rungIndex1}`)) >>> 0;
           const rng = makeRng((qSeed ^ 0xE6A7D3) >>> 0);
-          return getQuestion({ rng, difficulty });
+          return getQuestion({ rng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
         };
 
         const endWithReward = (correctCount: number, headerText?: string): GameState => {
@@ -3637,7 +3643,7 @@ The air bites. Take ${taken} damage.`,
         const makeExamQuestion = (rungIndex1: number): Question => {
           const qSeed = (state.seed ^ hashStringToInt(`event:exam_ladder:${nodeId}:r${rungIndex1}`)) >>> 0;
           const rng = makeRng((qSeed ^ 0xE6A7D3) >>> 0);
-          return getQuestion({ rng, difficulty });
+          return getQuestion({ rng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined });
         };
 
         const endWithReward = (count: number, headerText: string): GameState => {
@@ -4172,6 +4178,7 @@ Take ${taken} damage.` : ""}`,
             ...(battle as any).meta,
             supplyId: legacySupplyId,
             supplyIds,
+            questionPackIds: (setup as any)?.questionPackIds ?? undefined,
             isChallenge,
             runGold: state.gold ?? 0,
           },
@@ -4779,6 +4786,7 @@ Take ${taken} damage.` : ""}`,
             ...(battle as any).meta,
             supplyId: legacySupplyId,
             supplyIds,
+            questionPackIds: (state.setup as any)?.questionPackIds ?? undefined,
             isChallenge,
             runGold: state.gold ?? 0,
           },

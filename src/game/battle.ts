@@ -1611,7 +1611,7 @@ export function chooseCard(state: BattleState, rng: RNG, cardId: string): Battle
   }
 
   // Normal card play: spend energy and ask a question.
-  const q = getQuestion({ rng, difficulty: state.difficulty });
+  const q = getQuestion({ rng, difficulty: state.difficulty, packIds: (state.meta as any)?.questionPackIds ?? undefined });
   const next: BattleState = {
     ...state,
     energy: (state.energy ?? 0) - cost,
@@ -2661,7 +2661,7 @@ export function stepEnemyTurn(state: BattleState, rng: RNG): BattleState {
       const pendingDmg = Math.max(0, Math.floor(Number(meta0.pendingForcedQuestionDamage ?? 0)));
       const pendingBy = String(meta0.pendingForcedQuestionByEnemyId ?? "");
       if (pendingDmg > 0) {
-        const q = getQuestion({ rng, difficulty: afterDraw.difficulty });
+        const q = getQuestion({ rng, difficulty: afterDraw.difficulty, packIds: (afterDraw.meta as any)?.questionPackIds ?? undefined });
         meta0.forcedQuestionDamage = pendingDmg;
         meta0.forcedQuestionByEnemyId = pendingBy;
         meta0.pendingForcedQuestionDamage = 0;
