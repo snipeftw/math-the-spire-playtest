@@ -227,6 +227,8 @@ function EventNodeScreen(props: {
       props.onHoverTargetsChange?.(null);
       setHoverPreview(null);
       setHoverChoiceId(null);
+      setHoverAnchorRect(null);
+      hoverAnchorElRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.step]);
@@ -236,6 +238,36 @@ function EventNodeScreen(props: {
   const [hoverPreview, setHoverPreview] = useState<null | { note?: string; cards?: string[]; consumables?: string[]; supplies?: string[] }>(null);
   const [hoverChoiceId, setHoverChoiceId] = useState<string | null>(null);
   const lastHoverChoiceIdRef = useRef<string | null>(null);
+
+  // Keep a screen-space anchor for the hovered choice so the popover can render on top of everything (via portal).
+  const hoverAnchorElRef = useRef<HTMLElement | null>(null);
+  const [hoverAnchorRect, setHoverAnchorRect] = useState<null | {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+  }>(null);
+
+  useEffect(() => {
+    if (!hoverChoiceId || !hoverAnchorElRef.current) return;
+    const update = () => {
+      const el = hoverAnchorElRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setHoverAnchorRect({ left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height });
+    };
+
+    update();
+    // Capture scroll events from any scroll container.
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [hoverChoiceId]);
 
   const renderHoverPreviewContent = (p: { note?: string; cards?: string[]; consumables?: string[]; supplies?: string[] }) => {
     return (
@@ -2173,11 +2205,16 @@ return (ev?.choices ?? []).map((c) => ({
                       <div
                         key={c.id}
                         style={{ position: "relative", zIndex: active ? 30 : 1 }}
-                        onMouseEnter={() => {
+                        onMouseEnter={(e) => {
                           // Avoid rapid enter/leave loops that can lock up the UI in some browsers.
                           if (lastHoverChoiceIdRef.current === c.id) return;
                           lastHoverChoiceIdRef.current = c.id;
                           setHoverChoiceId(c.id);
+                          hoverAnchorElRef.current = e.currentTarget as HTMLElement;
+                          try {
+                            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            setHoverAnchorRect({ left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height });
+                          } catch {}
                           try {
                             sfx.cardHover();
                           } catch {}
@@ -2189,6 +2226,8 @@ return (ev?.choices ?? []).map((c) => ({
                             lastHoverChoiceIdRef.current = null;
                             setHoverChoiceId(null);
                             setHoverPreview(null);
+                            setHoverAnchorRect(null);
+                            hoverAnchorElRef.current = null;
                             props.onHoverTargetsChange?.(null);
                           }
                         }}
@@ -2223,31 +2262,55 @@ return (ev?.choices ?? []).map((c) => ({
                             ))}
                           </span>
                         </button>
-
-                        {active ? (
-                          <div
-                            className="panel soft"
-                            style={{
-                              position: "absolute",
-                              left: 0,
-                              right: 0,
-                              top: "calc(100% + 6px)",
-                              zIndex: 50,
-                              pointerEvents: "none",
-                              maxHeight: 260,
-                              overflow: "hidden",
-                            }}
-                          >
-                            <div style={{ fontWeight: 900, marginBottom: 6 }}>Preview</div>
-                            {renderHoverPreviewContent(hoverPreview!)}
-                          </div>
-                        ) : null}
                       </div>
                     );
                   })}
 
                 </div>
 	              </div>
+
+              {/* Hover preview popover (portal) so it always renders above panels and doesn't get clipped */}
+              {hoverChoiceId && hoverPreview && hoverAnchorRect
+                ? (() => {
+                    const margin = 8;
+                    const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+                    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+
+                    // Prefer the same width as the hovered option, but clamp for very small/large screens.
+                    const width = Math.max(260, Math.min(hoverAnchorRect.width, 520, vw - margin * 2));
+                    let left = hoverAnchorRect.left;
+                    if (left + width > vw - margin) left = Math.max(margin, vw - margin - width);
+                    if (left < margin) left = margin;
+
+                    const maxH = Math.max(160, Math.min(300, vh - margin * 2));
+                    // Default below the option; if it would run off-screen, flip above.
+                    let top = hoverAnchorRect.bottom + 6;
+                    if (top + maxH > vh - margin) {
+                      top = Math.max(margin, hoverAnchorRect.top - 6 - maxH);
+                    }
+
+                    const pop = (
+                      <div
+                        className="eventPreviewPopover"
+                        style={{
+                          position: "fixed",
+                          left,
+                          top,
+                          width,
+                          maxHeight: maxH,
+                          overflow: "auto",
+                          zIndex: 50000,
+                          pointerEvents: "none",
+                        }}
+                      >
+                        <div style={{ fontWeight: 900, marginBottom: 6 }}>Preview</div>
+                        {renderHoverPreviewContent(hoverPreview)}
+                      </div>
+                    );
+
+                    return typeof document !== "undefined" ? createPortal(pop, document.body) : pop;
+                  })()
+                : null}
 
               {lethalConfirm ? (() => {
                 const modal = (

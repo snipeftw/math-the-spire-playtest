@@ -95,6 +95,16 @@ body.compactMode .container.battleLayout .panel{
   box-shadow: var(--shadow2);
 }
 
+/* Event hover previews: fully opaque background + high-contrast border/shadow. */
+.eventPreviewPopover{
+  background: var(--bg1);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r2);
+  box-shadow: 0 18px 70px rgba(0,0,0,0.62);
+  padding: 12px;
+  backdrop-filter: none;
+}
+
 .grid{
   display:grid;
   gap: 12px;
