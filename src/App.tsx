@@ -1663,7 +1663,7 @@ export default function App() {
 
                     return (
                       <span
-                        key={c.id ?? i}
+                        key={`${c.id}:${i}`}
                         className="badge"
                         onClick={(e) => {
                           e.stopPropagation();

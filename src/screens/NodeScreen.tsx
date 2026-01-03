@@ -226,6 +226,7 @@ function EventNodeScreen(props: {
     if (node.step !== "INTRO") {
       props.onHoverTargetsChange?.(null);
       setHoverPreview(null);
+      setHoverChoiceId(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.step]);
@@ -233,7 +234,99 @@ function EventNodeScreen(props: {
   // Hover preview can be expensive; guard against rapid enter/leave loops by only
   // updating when the hovered choice actually changes.
   const [hoverPreview, setHoverPreview] = useState<null | { note?: string; cards?: string[]; consumables?: string[]; supplies?: string[] }>(null);
+  const [hoverChoiceId, setHoverChoiceId] = useState<string | null>(null);
   const lastHoverChoiceIdRef = useRef<string | null>(null);
+
+  const renderHoverPreviewContent = (p: { note?: string; cards?: string[]; consumables?: string[]; supplies?: string[] }) => {
+    return (
+      <React.Fragment>
+        {p.note ? (
+          <div className="muted" style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+            {renderMultilineWithDamage(p.note)}
+          </div>
+        ) : null}
+
+        {p.consumables?.length ? (
+          <div style={{ marginTop: p.note ? 10 : 0 }}>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+              Consumable{p.consumables.length > 1 ? "s" : ""}
+            </div>
+            <div style={{ display: "grid", gap: 8 }}>
+              {p.consumables.map((id, i) => {
+                const def: any = maps.consumableById.get(id);
+                return (
+                  <div key={id + ':' + i} className="panel soft cardTile" style={{ padding: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 900 }}>
+                      <span style={{ fontSize: 18 }}>{consumableIcon(id)}</span>
+                      <span>{def?.name ?? id}</span>
+                    </div>
+                    <div className="muted" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>
+                      {String(def?.desc ?? def?.description ?? "")}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {p.supplies?.length ? (
+          <div style={{ marginTop: 10 }}>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+              {p.supplies.length > 1 ? "Supplies" : "Supply"}
+            </div>
+            <div style={{ display: "grid", gap: 8 }}>
+              {p.supplies.map((id, i) => {
+                const def: any = maps.supplyById.get(id);
+                return (
+                  <div key={id + ':' + i} className="panel soft cardTile" style={{ padding: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 900 }}>
+                      <span style={{ fontSize: 18 }}>{def?.emoji ?? "🎒"}</span>
+                      <span>{def?.name ?? id}</span>
+                    </div>
+                    <div className="muted" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>
+                      {String(def?.desc ?? def?.description ?? "")}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {p.cards?.length ? (
+          <div style={{ marginTop: 10 }}>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+              Card{p.cards.length > 1 ? "s" : ""}
+            </div>
+            <div style={{ display: "grid", gap: 8 }}>
+              {p.cards.map((id, i) => {
+                const def: any = maps.cardById.get(id);
+                const isNeg = String(id ?? "").startsWith("neg_");
+                const rarityClass = def?.rarity ? ` rarity-${String(def.rarity).toLowerCase()}` : "";
+                return (
+                  <div
+                    key={id + ':' + i}
+                    className={"panel soft cardTile" + rarityClass + (isNeg ? " negativeCard" : "")}
+                    style={{ padding: 10 }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 900 }}>
+                      <span style={{ fontSize: 18 }}>🃏</span>
+                      <span>{def?.name ?? id}</span>
+                    </div>
+                    <div className="muted" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>
+                      {def ? cardDescForUi(def as any) : ""}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+      </React.Fragment>
+    );
+  };
+
 
 
   // Reset local selection when event step changes
@@ -250,6 +343,7 @@ function EventNodeScreen(props: {
     setPickedRewardSupplyId(null);
     setUpgradeModalOpen(node.step === "UPGRADE_PICK");
     setHoverPreview(null);
+    setHoverChoiceId(null);
     setLethalConfirm(null);
   }, [node.step, node.nodeId, node.eventId]);
 
@@ -282,6 +376,7 @@ function EventNodeScreen(props: {
     props.onHoverTargetsChange?.(null);
     lastHoverChoiceIdRef.current = null;
     setHoverPreview(null);
+    setHoverChoiceId(null);
     props.onChoose(choiceId);
   };
 
@@ -1916,10 +2011,10 @@ return (ev?.choices ?? []).map((c) => ({
                   </div>
 
                   <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-                    {pendingIds.map((cid: string) => {
+                    {pendingIds.map((cid: string, i: number) => {
                       const def: any = props.maps.consumableById.get(cid);
                       return (
-                        <div key={cid} className="panel soft">
+                        <div key={cid + ':' + i} className="panel soft">
                           <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 900 }}>
                             <span style={{ fontSize: 18 }}>{consumableIcon(cid)}</span>
                             <span>{String(def?.name ?? cid)}</span>
@@ -1955,10 +2050,10 @@ return (ev?.choices ?? []).map((c) => ({
 
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                       {inv.length ? (
-                        inv.map((cid: string) => {
+                        inv.map((cid: string, i: number) => {
                           const def: any = props.maps.consumableById.get(cid);
                           return (
-                            <div key={cid} className="panel soft">
+                            <div key={cid + ':' + i} className="panel soft">
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 900 }}>
                                 <span style={{ fontSize: 18 }}>{consumableIcon(cid)}</span>
@@ -2072,49 +2167,85 @@ return (ev?.choices ?? []).map((c) => ({
 
               <div>
                 <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-                  {choices.map((c) => (
-                    <button
-                      key={c.id}
-                      className="btn eventChoiceBtn"
-                      disabled={c.disabled}
-                      title={c.disabled ? c.disabledReason : ""}
-                      style={c.disabled ? { opacity: 0.7, cursor: "not-allowed" } : undefined}
-                      onMouseEnter={() => {
-                        // Avoid rapid enter/leave loops that can lock up the UI in some browsers.
-                        if (lastHoverChoiceIdRef.current === c.id) return;
-                        lastHoverChoiceIdRef.current = c.id;
-                        try {
-                          sfx.cardHover();
-                        } catch {}
-                        props.onHoverTargetsChange?.(hoverTargetsForChoice(c.id));
-                        setHoverPreview(previewForChoice(c.id));
-                      }}
-                      onClick={() => {
-                        if (c.disabled) return;
+                  {choices.map((c) => {
+                    const active = hoverChoiceId === c.id && !!hoverPreview;
+                    return (
+                      <div
+                        key={c.id}
+                        style={{ position: "relative", zIndex: active ? 30 : 1 }}
+                        onMouseEnter={() => {
+                          // Avoid rapid enter/leave loops that can lock up the UI in some browsers.
+                          if (lastHoverChoiceIdRef.current === c.id) return;
+                          lastHoverChoiceIdRef.current = c.id;
+                          setHoverChoiceId(c.id);
+                          try {
+                            sfx.cardHover();
+                          } catch {}
+                          props.onHoverTargetsChange?.(hoverTargetsForChoice(c.id));
+                          setHoverPreview(previewForChoice(c.id));
+                        }}
+                        onMouseLeave={() => {
+                          if (hoverChoiceId === c.id) {
+                            lastHoverChoiceIdRef.current = null;
+                            setHoverChoiceId(null);
+                            setHoverPreview(null);
+                            props.onHoverTargetsChange?.(null);
+                          }
+                        }}
+                      >
+                        <button
+                          className="btn eventChoiceBtn"
+                          disabled={c.disabled}
+                          title={c.disabled ? c.disabledReason : ""}
+                          style={c.disabled ? { opacity: 0.7, cursor: "not-allowed" } : undefined}
+                          onClick={() => {
+                            if (c.disabled) return;
 
-                        const dmg = guaranteedDamageForChoice(ev?.id, c.id);
-                        if (dmg && Number(props.hp ?? 0) - dmg <= 0) {
-                          try { sfx.bad(); } catch {}
-                          setLethalConfirm({ choiceId: c.id, damage: dmg });
-                          return;
-                        }
+                            const dmg = guaranteedDamageForChoice(ev?.id, c.id);
+                            if (dmg && Number(props.hp ?? 0) - dmg <= 0) {
+                              try { sfx.bad(); } catch {}
+                              setLethalConfirm({ choiceId: c.id, damage: dmg });
+                              return;
+                            }
 
-                        commitChoice(c.id);
-                      }}
-                    >
-                      <span style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 900 }}>{c.label}</div>
-                        <div className="eventChoiceHint">{c.hint}</div>
-                      </span>
-                      <span className="meta">
-                        {c.tags.map((t) => (
-                          <span key={t} className="badge">
-                            <strong>{t}</strong>
+                            commitChoice(c.id);
+                          }}
+                        >
+                          <span style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 900 }}>{c.label}</div>
+                            <div className="eventChoiceHint">{c.hint}</div>
                           </span>
-                        ))}
-                      </span>
-                    </button>
-                  ))}
+                          <span className="meta">
+                            {c.tags.map((t) => (
+                              <span key={t} className="badge">
+                                <strong>{t}</strong>
+                              </span>
+                            ))}
+                          </span>
+                        </button>
+
+                        {active ? (
+                          <div
+                            className="panel soft"
+                            style={{
+                              position: "absolute",
+                              left: 0,
+                              right: 0,
+                              top: "calc(100% + 6px)",
+                              zIndex: 50,
+                              pointerEvents: "none",
+                              maxHeight: 260,
+                              overflow: "hidden",
+                            }}
+                          >
+                            <div style={{ fontWeight: 900, marginBottom: 6 }}>Preview</div>
+                            {renderHoverPreviewContent(hoverPreview!)}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+
                 </div>
 	              </div>
 
@@ -2171,119 +2302,8 @@ return (ev?.choices ?? []).map((c) => ({
                 return typeof document !== "undefined" ? createPortal(modal, document.body) : modal;
               })() : null}
 
-              {/*
-                IMPORTANT:
-                Keep the preview area mounted with a stable height so that hovering an option
-                doesn't cause layout reflow that can trigger rapid enter/leave loops (which looks
-                like the whole UI disappearing).
-              */}
-              <div
-                className="panel soft"
-                style={{
-                  marginTop: 12,
-                  height: 260,
-                  // Always reserve a scrollbar so the panel width doesn't change on hover
-                  // (prevents hover enter/leave flicker loops in some browsers).
-                  overflowY: "scroll",
-                  overflowX: "hidden",
-                  // Keep layout stable even when scrollbars appear/disappear in different browsers.
-                  scrollbarGutter: "stable",
-                } as any}
-              >
-                <div style={{ fontWeight: 900, marginBottom: 6 }}>Preview</div>
+              
 
-                {!hoverPreview ? (
-                  <div className="muted" style={{ fontSize: 13, lineHeight: 1.55 }}>
-                    Hover an option to preview rewards.
-                  </div>
-                ) : (
-                  <React.Fragment>
-                    {hoverPreview.note ? (
-                      <div className="muted" style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
-                        {renderMultilineWithDamage(hoverPreview.note)}
-                      </div>
-                    ) : null}
-
-                    {hoverPreview.consumables?.length ? (
-                      <div style={{ marginTop: hoverPreview.note ? 10 : 0 }}>
-                        <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                          Consumable{hoverPreview.consumables.length > 1 ? "s" : ""}
-                        </div>
-                        <div style={{ display: "grid", gap: 8 }}>
-                          {hoverPreview.consumables.map((id) => {
-                            const def: any = maps.consumableById.get(id);
-                            return (
-                              <div key={id} className="panel soft cardTile" style={{ padding: 10 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 900 }}>
-                                  <span style={{ fontSize: 18 }}>{consumableIcon(id)}</span>
-                                  <span>{def?.name ?? id}</span>
-                                </div>
-                                <div className="muted" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>
-                                  {String(def?.desc ?? def?.description ?? "")}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {hoverPreview.supplies?.length ? (
-                      <div style={{ marginTop: 10 }}>
-                        <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                          {hoverPreview.supplies.length > 1 ? "Supplies" : "Supply"}
-                        </div>
-                        <div style={{ display: "grid", gap: 8 }}>
-                          {hoverPreview.supplies.map((id) => {
-                            const def: any = maps.supplyById.get(id);
-                            return (
-                              <div key={id} className="panel soft cardTile" style={{ padding: 10 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 900 }}>
-                                  <span style={{ fontSize: 18 }}>{def?.emoji ?? "🎒"}</span>
-                                  <span>{def?.name ?? id}</span>
-                                </div>
-                                <div className="muted" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>
-                                  {String(def?.desc ?? def?.description ?? "")}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {hoverPreview.cards?.length ? (
-                      <div style={{ marginTop: 10 }}>
-                        <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                          Card{hoverPreview.cards.length > 1 ? "s" : ""}
-                        </div>
-                        <div style={{ display: "grid", gap: 8 }}>
-                          {hoverPreview.cards.map((id) => {
-                            const def: any = maps.cardById.get(id);
-                            const isNeg = String(id ?? "").startsWith("neg_");
-                            const rarityClass = def?.rarity ? ` rarity-${String(def.rarity).toLowerCase()}` : "";
-                            return (
-                              <div
-                                key={id}
-                                className={"panel soft cardTile" + rarityClass + (isNeg ? " negativeCard" : "")}
-                                style={{ padding: 10 }}
-                              >
-                                <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 900 }}>
-                                  <span style={{ fontSize: 18 }}>🃏</span>
-                                  <span>{def?.name ?? id}</span>
-                                </div>
-                                <div className="muted" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>
-                                  {def ? cardDescForUi(def as any) : ""}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-                  </React.Fragment>
-                )}
-              </div>
             </React.Fragment>
           )}
 
