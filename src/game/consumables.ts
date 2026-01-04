@@ -115,7 +115,6 @@ export function tryUseConsumableInBattle(opts: {
         if (Number.isFinite(y)) {
           answer = String(y);
         }
-      }
       } else if (String(q.kind ?? "") === "corr_slider") {
         const build: any = q?.build ?? {};
         const r = Number(build.expectedR ?? NaN);

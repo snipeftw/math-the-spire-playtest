@@ -2408,7 +2408,15 @@ function onDropPlayZone(e: React.DragEvent) {
                 const q: any = awaiting.question as any;
                 const tags = Array.isArray(q?.tags) ? q.tags.map((x: any) => String(x ?? "")) : [];
                 const hasDataset = Array.isArray(q?.dataset) && q.dataset.length > 0;
-                const isBuilder = ["boxplot_build", "scatter_linefit", "scatter_predict"].includes(String(q?.kind ?? ""));
+                const kind = String(q?.kind ?? "");
+                const isBuilder = ["boxplot_build", "scatter_linefit", "scatter_predict"].includes(kind);
+
+                // For the interactive Unit 8.2 “Build a box plot” questions, the data lives on q.build.data
+                // (not q.dataset). Show the same drag-to-sort helper so students can organize the raw values.
+                const buildData = Array.isArray(q?.build?.data) ? (q.build.data as any[]) : null;
+                if (kind === "boxplot_build" && Array.isArray(buildData) && buildData.length > 0) {
+                  return <NumberReorderHelper values={buildData as any} label="Drag to sort the data (helper)" />;
+                }
 
                 // Sorting helper for any dataset-based question (Unit 8.1 + Unit 8.2, etc.)
                 if (hasDataset && !isBuilder) {

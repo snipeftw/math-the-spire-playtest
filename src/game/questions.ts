@@ -1059,7 +1059,7 @@ function getU83Question(req: QuestionRequest): Question {
           "TRUNCATED_AXIS",
           "PICTOGRAPH_EXAGGERATION",
           "PERCENT_NO_BASE",
-          "TWO_POINTS",
+          
           "RAW_COUNTS_VS_RATES",
         ] as const)
       : difficulty === 2
@@ -1067,7 +1067,7 @@ function getU83Question(req: QuestionRequest): Question {
             "TRUNCATED_AXIS",
             "PICTOGRAPH_EXAGGERATION",
             "PERCENT_NO_BASE",
-            "TWO_POINTS",
+            
             "RAW_COUNTS_VS_RATES",
             "CORRELATION_CAUSATION",
             "SURVEY_CLAIM",
@@ -1076,7 +1076,7 @@ function getU83Question(req: QuestionRequest): Question {
             "TRUNCATED_AXIS",
             "PICTOGRAPH_EXAGGERATION",
             "PERCENT_NO_BASE",
-            "TWO_POINTS",
+            
             "RAW_COUNTS_VS_RATES",
             "CORRELATION_CAUSATION",
             "SURVEY_CLAIM",
@@ -1155,7 +1155,7 @@ function getU83Question(req: QuestionRequest): Question {
 
   if (kind === "TWO_POINTS") {
     return mc(
-      "Look at the graph above and the caption. What is the biggest issue with the conclusion?",
+      "A news graphic shows only TWO data points and then makes a big conclusion.\n\nWhat is the biggest problem with that conclusion?",
       [
         "Two data points aren’t enough to confidently claim a trend or cause",
         "The numbers are too round to be real",
@@ -1164,8 +1164,7 @@ function getU83Question(req: QuestionRequest): Question {
       ],
       1,
       "With only two points, you can’t tell if it’s normal variation or caused by something else.",
-      ["sample_size", "two_points", "trend"],
-      { kind: "image", title: "Graph", src: "/questions/u8_3/slide15_img13.png", alt: "Traffic deaths shown with two points" }
+      ["sample_size", "two_points", "trend"]
     );
   }
 
