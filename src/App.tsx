@@ -525,6 +525,14 @@ export default function App() {
     { group: "8.5", label: "Linearity (linear / non-linear / none)", packId: "u8_5", tags: "linearity" },
     { group: "8.5", label: "Strength & direction", packId: "u8_5", tags: "strength" },
     { group: "8.5", label: "Correlation coefficient r (choice/slider)", packId: "u8_5", tags: "r" },
+
+// Unit 8.7
+{ group: "8.7", label: "Interpret slope/intercept", packId: "u8_7", tags: "interpret" },
+{ group: "8.7", label: "Regression equation (choice)", packId: "u8_7", tags: "equation" },
+{ group: "8.7", label: "Residual sign", packId: "u8_7", tags: "residual" },
+{ group: "8.7", label: "Predict using regression line (battle)", packId: "u8_7", tags: "predict" },
+{ group: "8.7", label: "Drag regression line (battle)", packId: "u8_7", tags: "linefit" },
+
   ];
 
   const QUESTION_FORCE_GROUPS = QUESTION_FORCE_PRESETS.reduce((acc, p) => {

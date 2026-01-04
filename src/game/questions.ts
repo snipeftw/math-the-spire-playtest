@@ -187,6 +187,13 @@ export const QUESTION_PACKS: QuestionPack[] = [
   description: "Correlation strength, correlation coefficient (r), and identifying linear vs non-linear relationships.",
 },
 
+{
+  id: "u8_7",
+  label: "Unit 8.7 — Regression",
+  description: "Regression lines (least squares), residuals, and making predictions with a model.",
+},
+
+
 ];
 
 export type QuestionRequest = {
@@ -1907,12 +1914,380 @@ function getU85Question(req: QuestionRequest): Question {
 
 
 
+
+function getU87Question(req: QuestionRequest): Question {
+  const { rng, difficulty } = req;
+
+  const tagSet = new Set((req.tags ?? []).map((t) => String(t ?? "")));
+  const isBattleContext = tagSet.has("context:battle");
+
+  const requireTagSet = new Set(
+    (req.requireTags ?? [])
+      .map((t) => String(t ?? "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  const forceLineFit =
+    isBattleContext &&
+    (requireTagSet.has("linefit") ||
+      requireTagSet.has("line_fit") ||
+      requireTagSet.has("fit") ||
+      requireTagSet.has("regression_linefit") ||
+      requireTagSet.has("scatter_linefit"));
+  const forcePredict =
+    isBattleContext &&
+    (requireTagSet.has("predict") ||
+      requireTagSet.has("prediction") ||
+      requireTagSet.has("regression_predict") ||
+      requireTagSet.has("scatter_predict"));
+  const forceResidual = requireTagSet.has("residual") || requireTagSet.has("residuals");
+  const forceEquation = requireTagSet.has("equation") || requireTagSet.has("model") || requireTagSet.has("regression");
+  const forceInterpret =
+    requireTagSet.has("interpret") ||
+    requireTagSet.has("meaning") ||
+    requireTagSet.has("slope") ||
+    requireTagSet.has("intercept");
+
+  // Real-ish datasets (pulled from your 8.7 regression workbook) + synthetic ones for variety.
+  const DATASET_WL: ScatterPoint[] = [
+    { x: 1.3, y: 1.7 }, { x: 2.1, y: 2.8 }, { x: 2.4, y: 3.2 }, { x: 2.8, y: 3.8 },
+    { x: 3.0, y: 3.8 }, { x: 3.5, y: 4.5 }, { x: 3.9, y: 5.4 }, { x: 4.2, y: 5.5 },
+    { x: 4.8, y: 6.0 }, { x: 5.2, y: 6.8 }, { x: 5.8, y: 6.9 }, { x: 6.2, y: 7.5 },
+    { x: 6.7, y: 8.2 }, { x: 7.1, y: 9.1 }, { x: 7.5, y: 8.6 },
+  ];
+
+  const DATASET_ATM: ScatterPoint[] = [
+    { x: 0.0, y: 15.0 }, { x: 1.0, y: 8.5 }, { x: 1.5, y: 5.3 }, { x: 2.0, y: 2.0 },
+    { x: 3.0, y: -4.5 }, { x: 4.0, y: -11.0 }, { x: 4.5, y: -14.2 }, { x: 5.0, y: -17.5 },
+    { x: 6.0, y: -23.9 }, { x: 7.0, y: -30.5 }, { x: 7.5, y: -33.7 }, { x: 8.0, y: -36.9 },
+    { x: 9.0, y: -43.4 }, { x: 10.0, y: -49.9 }, { x: 11.0, y: -56.4 },
+  ];
+
+  const pickSubset = (pts: ScatterPoint[], n: number): ScatterPoint[] => {
+    if (pts.length <= n) return pts.slice();
+    const out: ScatterPoint[] = [];
+    const used = new Set<number>();
+    while (out.length < n) {
+      const i = randInt(rng, 0, pts.length - 1);
+      if (used.has(i)) continue;
+      used.add(i);
+      out.push({ x: pts[i].x, y: pts[i].y });
+    }
+    return out;
+  };
+
+  const niceStep = (span: number): number => {
+    const s = Math.abs(span);
+    if (s <= 6) return 1;
+    if (s <= 12) return 2;
+    if (s <= 25) return 5;
+    if (s <= 60) return 10;
+    if (s <= 120) return 20;
+    return 50;
+  };
+
+  const axisFromPoints = (pts: ScatterPoint[], labels?: { x?: string; y?: string; title?: string }): ScatterAxis => {
+    const xs = pts.map((p) => p.x);
+    const ys = pts.map((p) => p.y);
+    const xMin0 = Math.min(...xs);
+    const xMax0 = Math.max(...xs);
+    const yMin0 = Math.min(...ys);
+    const yMax0 = Math.max(...ys);
+
+    const xSpan = Math.max(1e-6, xMax0 - xMin0);
+    const ySpan = Math.max(1e-6, yMax0 - yMin0);
+
+    const xTick = niceStep(xSpan);
+    const yTick = niceStep(ySpan);
+
+    const padX = xSpan * 0.08;
+    const padY = ySpan * 0.10;
+
+    const xMin = Math.floor((xMin0 - padX) / xTick) * xTick;
+    const xMax = Math.ceil((xMax0 + padX) / xTick) * xTick;
+    const yMin = Math.floor((yMin0 - padY) / yTick) * yTick;
+    const yMax = Math.ceil((yMax0 + padY) / yTick) * yTick;
+
+    return {
+      xMin,
+      xMax,
+      yMin,
+      yMax,
+      xTickStep: xTick,
+      yTickStep: yTick,
+      xLabel: labels?.x,
+      yLabel: labels?.y,
+    };
+  };
+
+  const makeDataset = (): { title: string; xLabel: string; yLabel: string; axis: ScatterAxis; points: ScatterPoint[]; line: { m: number; b: number } } => {
+    const roll = rng();
+    let title = "Scatter plot";
+    let xLabel = "x";
+    let yLabel = "y";
+    let points: ScatterPoint[] = [];
+
+    if (roll < 0.33) {
+      title = "Width vs Length (sample)";
+      xLabel = "W (cm)";
+      yLabel = "L (cm)";
+      points = pickSubset(DATASET_WL, difficulty === 1 ? 9 : difficulty === 2 ? 10 : 12);
+    } else if (roll < 0.66) {
+      title = "Temperature vs Altitude";
+      xLabel = "Altitude (km)";
+      yLabel = "Temperature (°C)";
+      points = pickSubset(DATASET_ATM, difficulty === 1 ? 9 : difficulty === 2 ? 10 : 12);
+    } else {
+      // Synthetic regression practice: lots of variety so it doesn't feel "samey".
+      const xStart = 0;
+      const xEnd = randInt(rng, 9, 14);
+      const n = difficulty === 1 ? 9 : difficulty === 2 ? 10 : 11;
+
+      // Keep slopes varied and avoid "almost flat".
+      let m = (rng() < 0.5 ? -1 : 1) * (0.7 + rng() * 3.6);
+      // Sometimes steeper.
+      if (difficulty >= 2 && rng() < 0.25) m *= 1.4;
+
+      const b = 1 + rng() * 10;
+
+      // Noise increases with difficulty.
+      const noise = difficulty === 1 ? 1 : difficulty === 2 ? 2 : 3;
+
+      points = makeScatterPointsFromLine({
+        rng,
+        m,
+        b,
+        xStart,
+        xEnd,
+        n,
+        noise,
+      });
+
+      title = rng() < 0.5 ? "Study hours vs Quiz score" : "Time vs Distance";
+      xLabel = title.includes("Study") ? "Hours studied" : "Time (min)";
+      yLabel = title.includes("Study") ? "Quiz score" : "Distance (km)";
+    }
+
+    const lr = linReg(points);
+    const axis = axisFromPoints(points, { x: xLabel, y: yLabel, title });
+    return { title, xLabel, yLabel, axis, points, line: lr };
+  };
+
+  const formatEq = (m: number, b: number): string => {
+    const mm = roundToStep(m, 0.1);
+    const bb = roundToStep(b, 0.1);
+    const sign = bb < 0 ? " - " : " + ";
+    return `y = ${mm.toFixed(1)}x${sign}${Math.abs(bb).toFixed(1)}`;
+  };
+
+  // ---------- Question kinds ----------
+  type Kind = "INTERPRET" | "EQUATION_CHOICE" | "RESIDUAL_SIGN" | "LINEFIT_BATTLE" | "PREDICT_BATTLE";
+
+  const pickKind = (): Kind => {
+    if (forceLineFit) return "LINEFIT_BATTLE";
+    if (forcePredict) return "PREDICT_BATTLE";
+    if (forceResidual) return "RESIDUAL_SIGN";
+    if (forceInterpret) return "INTERPRET";
+    if (forceEquation) return "EQUATION_CHOICE";
+
+    const pool: Kind[] = [];
+    if (difficulty === 1) {
+      pool.push("INTERPRET", "RESIDUAL_SIGN", "EQUATION_CHOICE");
+    } else {
+      pool.push("EQUATION_CHOICE", "RESIDUAL_SIGN", "INTERPRET");
+      if (isBattleContext) pool.push("LINEFIT_BATTLE", "PREDICT_BATTLE");
+    }
+    return pick(rng, pool);
+  };
+
+  const kind = pickKind();
+
+  const baseTags = ["unit:8.7", "u8_7"];
+
+  if (kind === "INTERPRET") {
+    // Simple meaning-of-slope / meaning-of-intercept questions.
+    const slope = roundToStep((rng() < 0.5 ? -1 : 1) * (0.8 + rng() * 4.2), 0.1);
+    const intercept = roundToStep(-5 + rng() * 30, 0.1);
+
+    const scenario = rng() < 0.5 ? "hours studied (x) vs test score (y)" : "weeks (x) vs plant height (y)";
+    const eq = formatEq(slope, intercept);
+
+    const askSlope = rng() < 0.6;
+    const prompt = askSlope
+      ? `A regression model for ${scenario} is:\n\n${eq}\n\nWhat does the slope (${slope.toFixed(1)}) represent? Enter the number.\n1) For each 1 unit increase in x, y changes by ${slope.toFixed(1)} on average\n2) For each 1 unit increase in y, x changes by ${slope.toFixed(1)} on average\n3) The starting value of x is ${slope.toFixed(1)}\n4) The maximum possible value of y is ${slope.toFixed(1)}`
+      : `A regression model for ${scenario} is:\n\n${eq}\n\nWhat does the y-intercept (${intercept.toFixed(1)}) represent? Enter the number.\n1) The predicted y-value when x = 0\n2) The predicted x-value when y = 0\n3) The average change in y for each +1 in x\n4) The strongest possible correlation`;
+
+    return {
+      id: "u8_7_interpret",
+      prompt,
+      answer: 1,
+      difficulty,
+      tags: [...baseTags, "interpret", askSlope ? "slope" : "intercept"],
+    };
+  }
+
+  // Dataset-backed questions below
+  const ds = makeDataset();
+  const { m, b } = ds.line;
+
+  if (kind === "EQUATION_CHOICE") {
+    // Multiple-choice: which equation best fits the scatter?
+    // Create 4 candidate equations around the regression line.
+    const m0 = roundToStep(m, 0.1);
+    const b0 = roundToStep(b, 0.1);
+
+    const dm1 = rng() < 0.5 ? 0.6 : -0.6;
+    const dm2 = rng() < 0.5 ? 0.9 : -0.9;
+    const db1 = rng() < 0.5 ? 1.2 : -1.2;
+    const db2 = rng() < 0.5 ? 1.8 : -1.8;
+
+    const cands = [
+      { m: m0, b: b0 },
+      { m: roundToStep(m0 + dm1, 0.1), b: roundToStep(b0 + db1, 0.1) },
+      { m: roundToStep(m0 + dm2, 0.1), b: b0 },
+      { m: m0, b: roundToStep(b0 + db2, 0.1) },
+    ];
+
+    const sse = (cand: { m: number; b: number }) =>
+      ds.points.reduce((acc, p) => {
+        const e = p.y - (cand.m * p.x + cand.b);
+        return acc + e * e;
+      }, 0);
+
+    let bestIdx = 0;
+    let bestVal = Infinity;
+    for (let i = 0; i < cands.length; i++) {
+      const v = sse(cands[i]);
+      if (v < bestVal) {
+        bestVal = v;
+        bestIdx = i;
+      }
+    }
+
+    const options = cands.map((c, i) => `${i + 1}) ${formatEq(c.m, c.b)}`).join("\n");
+    const prompt =
+      `Look at the scatter plot and choose the best regression model (line of best fit). Enter the number.\n\n${options}`;
+
+    return {
+      id: "u8_7_equation_choice",
+      prompt,
+      answer: bestIdx + 1,
+      difficulty,
+      viz: {
+        kind: "scatter",
+        title: ds.title,
+        xLabel: ds.xLabel,
+        yLabel: ds.yLabel,
+        xMin: ds.axis.xMin,
+        xMax: ds.axis.xMax,
+        yMin: ds.axis.yMin,
+        yMax: ds.axis.yMax,
+        xTickStep: ds.axis.xTickStep,
+        yTickStep: ds.axis.yTickStep,
+        points: ds.points,
+      },
+      tags: [...baseTags, "equation", "model"],
+    };
+  }
+
+  if (kind === "RESIDUAL_SIGN") {
+    // Show regression line + highlight a point; ask if residual is positive/negative/zero.
+    const idx = randInt(rng, 0, ds.points.length - 1);
+    const pts = ds.points.map((p, i) => (i === idx ? { ...p, label: "A" } : { ...p }));
+    const p = ds.points[idx];
+    const yHat = m * p.x + b;
+    const resid = p.y - yHat;
+
+    const tolZero = 0.2;
+    const ans = Math.abs(resid) <= tolZero ? 3 : resid > 0 ? 1 : 2;
+
+    const prompt =
+      `Point A is marked on the scatter plot.\nUsing the regression line, what is the sign of the residual for point A? Enter the number.\n1) Positive (point is above the line)\n2) Negative (point is below the line)\n3) Zero (point is on the line)`;
+
+    return {
+      id: "u8_7_residual_sign",
+      prompt,
+      answer: ans,
+      difficulty,
+      viz: {
+        kind: "scatter",
+        title: `${ds.title} (with regression line)`,
+        xLabel: ds.xLabel,
+        yLabel: ds.yLabel,
+        xMin: ds.axis.xMin,
+        xMax: ds.axis.xMax,
+        yMin: ds.axis.yMin,
+        yMax: ds.axis.yMax,
+        xTickStep: ds.axis.xTickStep,
+        yTickStep: ds.axis.yTickStep,
+        points: pts,
+        line: { m, b, label: "Regression line" },
+      },
+      tags: [...baseTags, "residual"],
+    };
+  }
+
+  if (kind === "PREDICT_BATTLE") {
+    // Interactive prediction at a target x (battle only). We ensure the target x isn't already a plotted x.
+    const xsSet = new Set(ds.points.map((p) => p.x));
+    const xMid = (ds.axis.xMin + ds.axis.xMax) / 2;
+    let targetX = roundToStep(xMid, ds.axis.xTickStep / 2);
+    // If it lands on an existing x, nudge.
+    let safety = 0;
+    while (xsSet.has(targetX) && safety++ < 20) {
+      targetX = roundToStep(targetX + ds.axis.xTickStep / 2, ds.axis.xTickStep / 2);
+    }
+    const expectedY = m * targetX + b;
+    const tol = 1;
+
+    return {
+      id: "u8_7_predict",
+      prompt: `Use the regression line to predict ${ds.yLabel} when ${ds.xLabel} = ${targetX}. Drag the marker to the predicted y-value.`,
+      answer: 0,
+      difficulty,
+      kind: "scatter_predict",
+      build: {
+        kind: "scatter_predict",
+        axis: ds.axis,
+        points: ds.points,
+        line: { m, b },
+        targetX,
+        expectedY,
+        tolerance: tol,
+      },
+      tags: [...baseTags, "predict"],
+    };
+  }
+
+  // Default: LINEFIT_BATTLE
+  // Interactive: drag a line of best fit.
+  const tol = difficulty === 1 ? 2.2 : difficulty === 2 ? 1.8 : 1.4;
+
+  return {
+    id: "u8_7_linefit",
+    prompt: `Drag the line to match the regression line (line of best fit). Aim to minimize the overall error.`,
+    answer: 0,
+    difficulty,
+    kind: "scatter_linefit",
+    build: {
+      kind: "scatter_linefit",
+      axis: ds.axis,
+      points: ds.points,
+      expected: { m, b },
+      tolerance: tol,
+    },
+    tags: [...baseTags, "linefit"],
+  };
+}
+
+
 const PACK_GENERATORS: Record<string, (req: QuestionRequest) => Question> = {
   u8_1: getU81Question,
   u8_2: getU82Question,
   u8_3: getU83Question,
   u8_4: getU84Question,
   u8_5: getU85Question,
+  u8_7: getU87Question,
 
 };
 
