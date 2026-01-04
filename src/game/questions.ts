@@ -1059,7 +1059,7 @@ function getU83Question(req: QuestionRequest): Question {
           "TRUNCATED_AXIS",
           "PICTOGRAPH_EXAGGERATION",
           "PERCENT_NO_BASE",
-          
+				"TWO_POINTS",
           "RAW_COUNTS_VS_RATES",
         ] as const)
       : difficulty === 2
@@ -1067,7 +1067,7 @@ function getU83Question(req: QuestionRequest): Question {
             "TRUNCATED_AXIS",
             "PICTOGRAPH_EXAGGERATION",
             "PERCENT_NO_BASE",
-            
+					"TWO_POINTS",
             "RAW_COUNTS_VS_RATES",
             "CORRELATION_CAUSATION",
             "SURVEY_CLAIM",
@@ -1076,7 +1076,7 @@ function getU83Question(req: QuestionRequest): Question {
             "TRUNCATED_AXIS",
             "PICTOGRAPH_EXAGGERATION",
             "PERCENT_NO_BASE",
-            
+					"TWO_POINTS",
             "RAW_COUNTS_VS_RATES",
             "CORRELATION_CAUSATION",
             "SURVEY_CLAIM",
