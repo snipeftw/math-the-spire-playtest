@@ -114,6 +114,18 @@ type ScatterPredictBuild = {
   tolerance: number;
 };
 
+
+type CorrSliderBuild = {
+  kind: "corr_slider";
+  // Expected correlation coefficient r (typically rounded to 0.1)
+  expectedR: number;
+  tolerance: number; // absolute tolerance on r
+  min?: number; // default -1
+  max?: number; // default 1
+  step?: number; // default 0.1
+};
+
+
 export type Question = {
   id: string;
   prompt: string;
@@ -124,10 +136,10 @@ export type Question = {
   dataset?: number[];
   // Optional: special interaction mode for answering.
   // (Default/undefined = normal numeric input.)
-  kind?: "boxplot_build" | "scatter_linefit" | "scatter_predict";
+  kind?: "boxplot_build" | "scatter_linefit" | "scatter_predict" | "corr_slider";
   // Extra data needed for special interactive questions.
   // Currently used for Unit 8.2 build-your-own box plot questions.
-  build?: BoxplotBuild | ScatterLineFitBuild | ScatterPredictBuild;
+  build?: BoxplotBuild | ScatterLineFitBuild | ScatterPredictBuild | CorrSliderBuild;
   viz?: QuestionViz;
   hint?: string;
   difficulty: Difficulty;
@@ -166,6 +178,13 @@ export const QUESTION_PACKS: QuestionPack[] = [
   id: "u8_4",
   label: "Unit 8.4 — Scatter Plots & Lines of Best Fit",
   description: "Scatter plots, correlation, outliers, and estimating/predicting with a line of best fit.",
+},
+
+
+{
+  id: "u8_5",
+  label: "Unit 8.5 — Scatter Plots & Correlation",
+  description: "Correlation strength, correlation coefficient (r), and identifying linear vs non-linear relationships.",
 },
 
 ];
@@ -1252,6 +1271,38 @@ function linReg(points: { x: number; y: number }[]): { m: number; b: number } {
   return { m, b };
 }
 
+
+function pearsonR(points: { x: number; y: number }[]): number {
+  const n = points.length;
+  if (n < 2) return 0;
+  let sx = 0, sy = 0;
+  for (const p of points) { sx += p.x; sy += p.y; }
+  const xBar = sx / n;
+  const yBar = sy / n;
+
+  let sxx = 0, syy = 0, sxy = 0;
+  for (const p of points) {
+    const dx = p.x - xBar;
+    const dy = p.y - yBar;
+    sxx += dx * dx;
+    syy += dy * dy;
+    sxy += dx * dy;
+  }
+  const denom = Math.sqrt(sxx * syy);
+  if (denom < 1e-9) return 0;
+  return sxy / denom;
+}
+
+function clamp01(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function roundToStep(v: number, step: number): number {
+  if (!Number.isFinite(step) || step <= 0) return v;
+  return Math.round(v / step) * step;
+}
+
+
 function autoAxisForScatter(points: { x: number; y: number }[]): ScatterAxis {
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
@@ -1618,11 +1669,251 @@ function getU84Question(req: QuestionRequest): Question {
 }
 
 
+
+function getU85Question(req: QuestionRequest): Question {
+  const { rng, difficulty } = req;
+
+  const tagSet = new Set((req.tags ?? []).map((t) => String(t ?? "")));
+  const isBattleContext = tagSet.has("context:battle");
+
+  const requireTagSet = new Set(
+    (req.requireTags ?? [])
+      .map((t) => String(t ?? "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  const forceR = requireTagSet.has("r") || requireTagSet.has("rvalue") || requireTagSet.has("corr") || requireTagSet.has("corr_coeff") || requireTagSet.has("coefficient");
+  const forceStrength = requireTagSet.has("strength") || requireTagSet.has("strong") || requireTagSet.has("moderate") || requireTagSet.has("weak");
+  const forceLinearity = requireTagSet.has("linearity") || requireTagSet.has("linear") || requireTagSet.has("nonlinear") || requireTagSet.has("non-linear") || requireTagSet.has("no_correlation") || requireTagSet.has("none");
+
+  type LinClass = "linear" | "nonlinear" | "none";
+  type Dir = "pos" | "neg";
+  type Strength = "weak" | "moderate" | "strong";
+
+  const xsDefault = [1,2,3,4,5,6,7,8,9];
+
+  const makeLinear = (dir: Dir, strength: Strength, labelPoints = false): { points: ScatterPoint[]; r: number } => {
+    // Choose a slope/intercept that keeps values reasonable.
+    const scenarios = dir === "pos"
+      ? [{ m: 2, b: 1 }, { m: 1.5, b: 2 }, { m: 1, b: 4 }]
+      : [{ m: -2, b: 22 }, { m: -1.5, b: 18 }, { m: -1, b: 16 }];
+    const sc = pick(rng, scenarios as any) as { m: number; b: number };
+
+    // Noise tuned by desired strength.
+    const baseNoise = strength === "strong" ? 0.8 : strength === "moderate" ? 2 : 4;
+
+    // Try a few times to hit the intended r bucket.
+    for (let t = 0; t < 24; t++) {
+      const noise = baseNoise * (0.75 + rng() * 0.7);
+      const pts = makeScatterPointsOnXs({ rng, m: sc.m, b: sc.b, xs: xsDefault, noise, labelPoints });
+      const r = pearsonR(pts);
+      const ar = Math.abs(r);
+
+      const ok =
+        strength === "strong" ? ar >= 0.8 :
+        strength === "moderate" ? ar >= 0.5 && ar < 0.8 :
+        ar >= 0.2 && ar < 0.5;
+
+      if (ok) return { points: pts, r };
+    }
+
+    // Fallback.
+    const pts = makeScatterPointsOnXs({ rng, m: sc.m, b: sc.b, xs: xsDefault, noise: baseNoise, labelPoints });
+    return { points: pts, r: pearsonR(pts) };
+  };
+
+  const makeNonLinear = (): ScatterPoint[] => {
+    // Simple U-shape.
+    const pts: ScatterPoint[] = [];
+    for (const x of xsDefault) {
+      const y0 = Math.round(((x - 5) * (x - 5)) + 2 + (rng() - 0.5) * 2);
+      pts.push({ x, y: y0 });
+    }
+    return pts;
+  };
+
+  const makeNone = (): ScatterPoint[] => makeCloudPoints({ rng, xMin: 1, xMax: 9, yMin: 2, yMax: 20, n: 10 });
+
+  const KINDS =
+    difficulty === 1
+      ? (["LINEARITY", "STRENGTH_DIR"] as const)
+      : difficulty === 2
+        ? (["LINEARITY", "STRENGTH_DIR", "R_CHOICE", "R_SLIDER"] as const)
+        : (["LINEARITY", "STRENGTH_DIR", "R_CHOICE", "R_SLIDER"] as const);
+
+  let kind = pick(rng, (KINDS as readonly string[]).slice() as any) as string;
+
+  // Forcing rules (teacher debug)
+  if (forceR) kind = isBattleContext ? "R_SLIDER" : "R_CHOICE";
+  else if (forceStrength) kind = "STRENGTH_DIR";
+  else if (forceLinearity) kind = "LINEARITY";
+
+  // Interactive is battle-only. If not in battle context, swap to choice.
+  if (!isBattleContext && kind === "R_SLIDER") kind = "R_CHOICE";
+
+  // LINEARITY: linear vs non-linear vs none
+  if (kind === "LINEARITY") {
+    const which = pick(rng, ["linear", "nonlinear", "none"] as const) as LinClass;
+    let points: ScatterPoint[] = [];
+    if (which === "linear") {
+      const dir = pick(rng, ["pos", "neg"] as const) as Dir;
+      points = makeLinear(dir, pick(rng, ["strong", "moderate"] as const) as Strength, false).points;
+    } else if (which === "nonlinear") {
+      points = makeNonLinear();
+    } else {
+      points = makeNone();
+    }
+    const axis = autoAxisForScatter(points);
+    const options = ["Approximately linear", "Non-linear", "No correlation"];
+    const answer = which === "linear" ? 1 : which === "nonlinear" ? 2 : 3;
+
+    return {
+      id: qid("u85", randInt(rng, 1000, 9999)),
+      prompt: choicePromptGeneric("Is this scatter plot approximately linear, non-linear, or no correlation?", options),
+      answer,
+      difficulty,
+      tags: ["u8_5", "scatter", "linearity", which],
+      viz: {
+        kind: "scatter",
+        title: "Scatter plot",
+        xLabel: "x",
+        yLabel: "y",
+        ...axis,
+        points,
+      } as any,
+      hint: "Linear: points follow a roughly straight-line trend. Non-linear: curved trend. None: no clear trend.",
+    };
+  }
+
+  // STRENGTH_DIR: 6-way classification (direction + strength)
+  if (kind === "STRENGTH_DIR") {
+    const dir = pick(rng, ["pos", "neg"] as const) as Dir;
+    const strength = pick(rng, ["weak", "moderate", "strong"] as const) as Strength;
+    const { points } = makeLinear(dir, strength, false);
+    const axis = autoAxisForScatter(points);
+
+    const options = [
+      "Strong positive",
+      "Moderate positive",
+      "Weak positive",
+      "Strong negative",
+      "Moderate negative",
+      "Weak negative",
+    ];
+
+    const answer =
+      dir === "pos"
+        ? (strength === "strong" ? 1 : strength === "moderate" ? 2 : 3)
+        : (strength === "strong" ? 4 : strength === "moderate" ? 5 : 6);
+
+    return {
+      id: qid("u85", randInt(rng, 1000, 9999)),
+      prompt: choicePromptGeneric("Which description best matches the relationship?", options),
+      answer,
+      difficulty,
+      tags: ["u8_5", "scatter", "strength", dir, strength],
+      viz: {
+        kind: "scatter",
+        title: "Scatter plot",
+        xLabel: "x",
+        yLabel: "y",
+        ...axis,
+        points,
+      } as any,
+      hint: "Stronger correlation = points closer to a straight line. Sign depends on up/down trend.",
+    };
+  }
+
+  // Build a linear scenario for r estimation questions
+  const dir = pick(rng, ["pos", "neg"] as const) as Dir;
+  const strength = pick(rng, ["weak", "moderate", "strong"] as const) as Strength;
+  const { points, r } = makeLinear(dir, strength, false);
+  const axis = autoAxisForScatter(points);
+
+  const step = 0.1;
+  const rRounded = clamp01(roundToStep(r, step), -1, 1);
+  const tol = 0.1;
+
+  if (kind === "R_CHOICE") {
+    // Create 4 options around the rounded r.
+    const distractors = new Set<number>();
+    distractors.add(rRounded);
+
+    const candidates = [rRounded - 0.4, rRounded - 0.2, rRounded + 0.2, rRounded + 0.4, -rRounded];
+    for (const c of candidates) distractors.add(clamp01(roundToStep(c, step), -1, 1));
+
+    while (distractors.size < 4) {
+      const c = clamp01(roundToStep((rng() * 2 - 1), step), -1, 1);
+      distractors.add(c);
+    }
+
+    const opts = Array.from(distractors).slice(0, 4);
+    // Shuffle options
+    for (let i = opts.length - 1; i > 0; i--) {
+      const j = randInt(rng, 0, i);
+      const tmp = opts[i];
+      opts[i] = opts[j];
+      opts[j] = tmp;
+    }
+
+    const idx = opts.findIndex((v) => Math.abs(v - rRounded) < 1e-9);
+    const answer = idx >= 0 ? idx + 1 : 1;
+
+    return {
+      id: qid("u85", randInt(rng, 1000, 9999)),
+      prompt: choicePromptGeneric("Estimate the correlation coefficient r (closest value).", opts.map((v) => String(v.toFixed(1)))),
+      answer,
+      difficulty,
+      tags: ["u8_5", "scatter", "r", "choice", dir, strength],
+      viz: {
+        kind: "scatter",
+        title: "Scatter plot",
+        xLabel: "x",
+        yLabel: "y",
+        ...axis,
+        points,
+      } as any,
+      hint: "r is between -1 and 1. Sign shows direction; magnitude shows strength.",
+    };
+  }
+
+  // R_SLIDER (battle): drag slider to estimate r (to nearest 0.1)
+  return {
+    id: qid("u85", randInt(rng, 1000, 9999)),
+    prompt: "Use the slider to estimate the correlation coefficient r (to the nearest tenth).",
+    answer: rRounded,
+    difficulty,
+    tags: ["u8_5", "scatter", "r", "slider", "interactive", dir, strength],
+    kind: "corr_slider",
+    build: {
+      kind: "corr_slider",
+      expectedR: rRounded,
+      tolerance: tol,
+      min: -1,
+      max: 1,
+      step,
+    },
+    viz: {
+      kind: "scatter",
+      title: "Scatter plot",
+      xLabel: "x",
+      yLabel: "y",
+      ...axis,
+      points,
+    } as any,
+    hint: "r near 1 or -1 means strong linear correlation; r near 0 means weak/no linear correlation.",
+  };
+}
+
+
+
+
 const PACK_GENERATORS: Record<string, (req: QuestionRequest) => Question> = {
   u8_1: getU81Question,
   u8_2: getU82Question,
   u8_3: getU83Question,
   u8_4: getU84Question,
+  u8_5: getU85Question,
 
 };
 

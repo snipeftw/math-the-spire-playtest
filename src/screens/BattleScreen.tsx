@@ -15,6 +15,7 @@ import { CONSUMABLES_10 } from "../content/consumables";
 import { QuestionVizView } from "../components/QuestionViz";
 import { BoxPlotBuilder, defaultBuildStart } from "../components/BoxPlotBuilder";
 import { ScatterLineFitBuilder, ScatterPredictBuilder, type ScatterLineFitValue, type ScatterPredictValue } from "../components/ScatterBuilders";
+import { CorrelationSlider } from "../components/CorrelationSlider";
 import { NumberReorderHelper } from "../components/NumberReorderHelper";
 import { KeyValuesReorderHelper } from "../components/KeyValuesReorderHelper";
 
@@ -330,6 +331,7 @@ export default function BattleScreen(props: {
   const [boxplotBuild, setBoxplotBuild] = useState<null | { min: number; q1: number; median: number; q3: number; max: number }>(null);
   const [scatterLineFit, setScatterLineFit] = useState<ScatterLineFitValue | null>(null);
   const [scatterPredict, setScatterPredict] = useState<ScatterPredictValue | null>(null);
+  const [corrSlider, setCorrSlider] = useState<number>(0);
   const buildMeta = (awaiting as any)?.question?.build as any;
   const buildQuestionKey = String((awaiting as any)?.question?.id ?? (awaiting as any)?.question?.prompt ?? "");
 
@@ -354,7 +356,7 @@ export default function BattleScreen(props: {
   useEffect(() => {
     if (!awaiting) return;
     const qKind = String((awaiting as any)?.question?.kind ?? "");
-    if (["boxplot_build", "scatter_linefit", "scatter_predict"].includes(qKind)) return;
+    if (["boxplot_build", "scatter_linefit", "scatter_predict", "corr_slider"].includes(qKind)) return;
     setTimeout(() => {
       answerInputRef.current?.focus();
       answerInputRef.current?.select();
@@ -404,10 +406,19 @@ export default function BattleScreen(props: {
     if (!awaiting) {
       setScatterLineFit(null);
       setScatterPredict(null);
+      setCorrSlider(0);
       return;
     }
     const qKind = String((awaiting as any)?.question?.kind ?? "");
     const m: any = (awaiting as any)?.question?.build ?? {};
+
+    if (qKind === "corr_slider") {
+      // Start slider at 0 (students can drag to estimate r).
+      setCorrSlider(0);
+      setScatterLineFit(null);
+      setScatterPredict(null);
+      return;
+    }
 
     if (qKind === "scatter_linefit" && m && m.axis && m.expected) {
       const axis = m.axis as any;
@@ -420,6 +431,7 @@ export default function BattleScreen(props: {
       const yR = Math.max(yMin, Math.min(yMax, yMid + jit));
       setScatterLineFit({ yLeft: yL, yRight: yR });
       setScatterPredict(null);
+      setCorrSlider(0);
       return;
     }
 
@@ -432,12 +444,14 @@ export default function BattleScreen(props: {
       const startY = y0 < yMin ? yMin : y0 > yMax ? yMax : y0;
       setScatterPredict({ y: startY });
       setScatterLineFit(null);
+      setCorrSlider(0);
       return;
     }
 
     // otherwise clear
     setScatterLineFit(null);
     setScatterPredict(null);
+    setCorrSlider(0);
   }, [buildQuestionKey]);
 
   const playerMax = b.playerMaxHP ?? 50;
@@ -1376,6 +1390,15 @@ if (qKind === "boxplot_build") {
   } else {
     const v = scatterPredict;
     answerInput = v ? String(Number(v.y)) : expStr;
+  }
+} else if (qKind === "corr_slider") {
+  const m: any = (awaiting as any)?.question?.build ?? {};
+  const expR = Number(m.expectedR ?? (awaiting as any)?.question?.answer ?? 0);
+  const expStr = String(expR);
+  if (props.debugSkipQuestions) {
+    answerInput = expStr;
+  } else {
+    answerInput = String(corrSlider);
   }
 } else {
   answerInput = props.debugSkipQuestions ? String(input || (awaiting as any).question.answer) : String(input);
@@ -2357,6 +2380,26 @@ function onDropPlayZone(e: React.DragEvent) {
                 </div>
               ) : null}
 
+              {String((awaiting as any)?.question?.kind ?? "") === "corr_slider" ? (
+                <div style={{ marginTop: 12 }}>
+                  {(() => {
+                    const m: any = (awaiting as any)?.question?.build ?? {};
+                    const min = Number(m.min ?? -1);
+                    const max = Number(m.max ?? 1);
+                    const step = Number(m.step ?? 0.1);
+                    return (
+                      <CorrelationSlider
+                        value={corrSlider}
+                        onChange={setCorrSlider}
+                        min={min}
+                        max={max}
+                        step={step}
+                      />
+                    );
+                  })()}
+                </div>
+              ) : null}
+
               {!(["boxplot_build", "scatter_linefit", "scatter_predict"].includes(String((awaiting as any)?.question?.kind ?? ""))) && awaiting.question.viz ? (
                 <QuestionVizView viz={awaiting.question.viz as any} />
               ) : null}
@@ -2475,7 +2518,7 @@ function onDropPlayZone(e: React.DragEvent) {
 
               <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                 
-{awaiting && ["boxplot_build", "scatter_linefit", "scatter_predict"].includes(String((awaiting as any)?.question?.kind ?? "")) ? (
+{awaiting && ["boxplot_build", "scatter_linefit", "scatter_predict", "corr_slider"].includes(String((awaiting as any)?.question?.kind ?? "")) ? (
   <div className="row" style={{ gap: 8 }}>
     <button
       className="btn"
@@ -2500,6 +2543,8 @@ function onDropPlayZone(e: React.DragEvent) {
           const yMax = Number(axis.yMax ?? 10);
           const y0 = 0;
           setScatterPredict({ y: y0 < yMin ? yMin : y0 > yMax ? yMax : y0 });
+        } else if (k === "corr_slider") {
+          setCorrSlider(0);
         }
       }}
       disabled={!awaiting}
@@ -2508,7 +2553,9 @@ function onDropPlayZone(e: React.DragEvent) {
         ? "Reset Plot"
         : String((awaiting as any)?.question?.kind ?? "") === "scatter_linefit"
           ? "Reset Line"
-          : "Reset Point"}
+          : String((awaiting as any)?.question?.kind ?? "") === "corr_slider"
+            ? "Reset Slider"
+            : "Reset Point"}
     </button>
     <button className="btn primary" onClick={submitAnswer} disabled={!awaiting}>
       Submit

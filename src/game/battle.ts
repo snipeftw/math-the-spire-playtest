@@ -1761,6 +1761,16 @@ export function resolveCardAnswer(opts: { rng: RNG; state: BattleState; input: s
   expectedForLog = Number.isFinite(expY) ? `y≈${expY.toFixed(2)} (±${tol})` : String(expected ?? "");
   correct = Number.isFinite(parsed) && Number.isFinite(expY) && Math.abs(parsed - expY) <= tol;
 
+
+} else if (qKind === "corr_slider") {
+  const build: any = (awaiting.question as any)?.build ?? {};
+  const expR = Number(build.expectedR ?? expected ?? NaN);
+  const tol = Number(build.tolerance ?? 0.1);
+  const parsed = Number(String(inputRaw ?? "").trim().replace(",", "."));
+  expectedForLog = Number.isFinite(expR) ? `r≈${expR.toFixed(1)} (±${tol})` : String(expected ?? "");
+  correct = Number.isFinite(parsed) && Number.isFinite(expR) && Math.abs(parsed - expR) <= tol;
+
+
 } else {
       // Default: numeric equality (with optional letter support for certain questions)
       const tags = new Set(

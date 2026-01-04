@@ -520,6 +520,11 @@ export default function App() {
     { group: "8.4", label: "Interpolation only", packId: "u8_4", tags: "interp" },
     { group: "8.4", label: "Line of best fit (battle)", packId: "u8_4", tags: "linefit" },
     { group: "8.4", label: "Predict using line (battle)", packId: "u8_4", tags: "predict" },
+
+    // Unit 8.5
+    { group: "8.5", label: "Linearity (linear / non-linear / none)", packId: "u8_5", tags: "linearity" },
+    { group: "8.5", label: "Strength & direction", packId: "u8_5", tags: "strength" },
+    { group: "8.5", label: "Correlation coefficient r (choice/slider)", packId: "u8_5", tags: "r" },
   ];
 
   const QUESTION_FORCE_GROUPS = QUESTION_FORCE_PRESETS.reduce((acc, p) => {

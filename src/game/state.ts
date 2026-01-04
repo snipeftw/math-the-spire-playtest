@@ -3570,9 +3570,32 @@ The air bites. Take ${taken} damage.`,
       const locker0 = lockers0[pending.index];
       if (!locker0 || locker0.collected) return state;
 
-      const given = Math.floor(Number(action.answer));
-      const expected = Math.floor(Number(quiz.question?.answer ?? NaN));
+      const qTags = new Set(
+        Array.isArray((quiz.question as any)?.tags)
+          ? ((quiz.question as any).tags as any[]).map((t) => String(t ?? "").trim().toLowerCase())
+          : []
+      );
+      const wantsLetter = qTags.has("answer:letter");
+
+      const parseNumOrLetter = (s: any): number => {
+        const ss = String(s ?? "").trim();
+        if (!ss) return NaN;
+        if (/^[a-z]$/i.test(ss)) {
+          const c = ss.toUpperCase().charCodeAt(0);
+          return c >= 65 && c <= 90 ? c - 64 : NaN;
+        }
+        return Number(ss.replace(",", "."));
+      };
+
+      const givenRaw = wantsLetter ? parseNumOrLetter(action.answer) : Number(String(action.answer ?? "").replace(",", "."));
+      const given = Math.floor(Number(givenRaw));
+      const expectedRaw = quiz.question?.answer ?? NaN;
+      const expected = Math.floor(Number(expectedRaw));
       const correct = Number.isFinite(given) && Number.isFinite(expected) && given === expected;
+      const expectedForLog =
+        wantsLetter && Number.isFinite(expected) && expected >= 1 && expected <= 26
+          ? String.fromCharCode(64 + Math.round(expected))
+          : String(expectedRaw ?? "");
 
       let baseState: GameState = state;
       if (!correct) {
@@ -3588,7 +3611,7 @@ The air bites. Take ${taken} damage.`,
             source: "HALLWAY",
             location,
             prompt: String(quiz.question?.prompt ?? ""),
-            expected: String(quiz.question?.answer ?? ""),
+            expected: expectedForLog,
             given: String(action.answer ?? ""),
           } as any;
           baseState = appendWrongAnswerLog(baseState, entry);
@@ -3672,10 +3695,30 @@ The air bites. Take ${taken} damage.`,
         };
       }
 
-      const given = Math.floor(Number(action.answer));
-      const expected = Math.floor(Number(q.answer ?? NaN));
-      const correct = Number.isFinite(given) && Number.isFinite(expected) && given === expected;
+      const qTags = new Set(
+        Array.isArray((q as any)?.tags) ? ((q as any).tags as any[]).map((t) => String(t ?? "").trim().toLowerCase()) : []
+      );
+      const wantsLetter = qTags.has("answer:letter");
 
+      const parseNumOrLetter = (s: any): number => {
+        const ss = String(s ?? "").trim();
+        if (!ss) return NaN;
+        if (/^[a-z]$/i.test(ss)) {
+          const c = ss.toUpperCase().charCodeAt(0);
+          return c >= 65 && c <= 90 ? c - 64 : NaN;
+        }
+        return Number(ss.replace(",", "."));
+      };
+
+      const givenRaw = wantsLetter ? parseNumOrLetter(action.answer) : Number(String(action.answer ?? "").replace(",", "."));
+      const given = Math.floor(Number(givenRaw));
+      const expectedRaw = q.answer ?? NaN;
+      const expected = Math.floor(Number(expectedRaw));
+      const correct = Number.isFinite(given) && Number.isFinite(expected) && given === expected;
+      const expectedForLog =
+        wantsLetter && Number.isFinite(expected) && expected >= 1 && expected <= 26
+          ? String.fromCharCode(64 + Math.round(expected))
+          : String(expectedRaw ?? "");
 
       let baseState: GameState = state;
       if (!correct) {
@@ -3693,7 +3736,7 @@ The air bites. Take ${taken} damage.`,
             source: "EVENT",
             location,
             prompt: String(q?.prompt ?? ""),
-            expected: String(q?.answer ?? ""),
+            expected: expectedForLog,
             given: String(action.answer ?? ""),
           } as any;
           baseState = appendWrongAnswerLog(baseState, entry);

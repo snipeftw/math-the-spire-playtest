@@ -116,6 +116,14 @@ export function tryUseConsumableInBattle(opts: {
           answer = String(y);
         }
       }
+      } else if (String(q.kind ?? "") === "corr_slider") {
+        const build: any = q?.build ?? {};
+        const r = Number(build.expectedR ?? NaN);
+        if (Number.isFinite(r)) {
+          answer = String(r);
+        }
+      }
+
     } catch {}
     const next = resolveCardAnswer({ rng, state, input: answer });
     return {
