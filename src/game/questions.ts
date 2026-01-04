@@ -615,12 +615,23 @@ function getU82Question(req: QuestionRequest): Question {
 
   const KINDS =
     difficulty === 1
-      ? (["READ_MEDIAN", "DATASET_MEDIAN", "READ_MIN", "READ_MAX"] as const)
+			? ([
+					// difficulty 1: introduce the five-number summary needed to CREATE a box plot
+					"DATASET_MIN",
+					"DATASET_MAX",
+					"DATASET_MEDIAN",
+					// plus a few quick reads from a box plot (change of pace)
+					"READ_MEDIAN",
+					"READ_MIN",
+					"READ_MAX",
+				] as const)
       : difficulty === 2
         ? ([
             "READ_Q1",
             "READ_Q3",
             "READ_MEDIAN",
+						"DATASET_MIN",
+						"DATASET_MAX",
             "DATASET_Q1",
             "DATASET_MEDIAN",
             "DATASET_Q3",
@@ -629,6 +640,8 @@ function getU82Question(req: QuestionRequest): Question {
             "READ_Q1",
             "READ_Q3",
             "READ_MEDIAN",
+						"DATASET_MIN",
+						"DATASET_MAX",
             "DATASET_Q1",
             "DATASET_MEDIAN",
             "DATASET_Q3",
@@ -748,15 +761,39 @@ function getU82Question(req: QuestionRequest): Question {
     };
   }
 
+	if (kind === "DATASET_MIN") {
+		const s = fiveNumberSummary(data);
+		return {
+			id: qid("u8_2_dataset_min", Number(s.min)),
+			prompt: `${dataPrompt}\n\nTo create a box plot, you need the five-number summary. What is the minimum value?`,
+			answer: s.min,
+			hint: "Sort the data. The minimum is the smallest value.",
+			difficulty,
+			tags: ["u8_2", "create_boxplot", "minimum"],
+		};
+	}
+
+	if (kind === "DATASET_MAX") {
+		const s = fiveNumberSummary(data);
+		return {
+			id: qid("u8_2_dataset_max", Number(s.max)),
+			prompt: `${dataPrompt}\n\nTo create a box plot, you need the five-number summary. What is the maximum value?`,
+			answer: s.max,
+			hint: "Sort the data. The maximum is the largest value.",
+			difficulty,
+			tags: ["u8_2", "create_boxplot", "maximum"],
+		};
+	}
+
   if (kind === "DATASET_MEDIAN") {
     const s = fiveNumberSummary(data);
     return {
       id: qid("u8_2_dataset_median", Number(s.median)),
-      prompt: `${dataPrompt}\n\nWhat is the median (Q2)?`,
+			prompt: `${dataPrompt}\n\nTo create a box plot, you need the five-number summary. What is the median (Q2)?`,
       answer: s.median,
       hint: "Sort the data. The median is the middle value (or average of the two middle values).",
       difficulty,
-      tags: ["u8_2", "quartiles", "median"],
+			tags: ["u8_2", "create_boxplot", "median"],
     };
   }
 
@@ -764,11 +801,11 @@ function getU82Question(req: QuestionRequest): Question {
     const s = fiveNumberSummary(data);
     return {
       id: qid("u8_2_dataset_q1", Number(s.q1)),
-      prompt: `${dataPrompt}\n\nFind Quartile 1 (Q1).`,
+			prompt: `${dataPrompt}\n\nTo create a box plot, you need the five-number summary. Find Quartile 1 (Q1).`,
       answer: s.q1,
       hint: "Sort the data. Split it into lower/upper halves (exclude the median if there is one), then take the median of the LOWER half.",
       difficulty,
-      tags: ["u8_2", "quartiles", "q1"],
+			tags: ["u8_2", "create_boxplot", "q1"],
     };
   }
 
@@ -776,11 +813,11 @@ function getU82Question(req: QuestionRequest): Question {
     const s = fiveNumberSummary(data);
     return {
       id: qid("u8_2_dataset_q3", Number(s.q3)),
-      prompt: `${dataPrompt}\n\nFind Quartile 3 (Q3).`,
+			prompt: `${dataPrompt}\n\nTo create a box plot, you need the five-number summary. Find Quartile 3 (Q3).`,
       answer: s.q3,
       hint: "Sort the data. Split it into lower/upper halves (exclude the median if there is one), then take the median of the UPPER half.",
       difficulty,
-      tags: ["u8_2", "quartiles", "q3"],
+			tags: ["u8_2", "create_boxplot", "q3"],
     };
   }
 
