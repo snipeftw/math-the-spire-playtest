@@ -42,6 +42,9 @@ export type Question = {
   prompt: string;
   // for now: numeric answers only (keeps engine simple)
   answer: number;
+  // Optional raw dataset used to generate the question.
+  // Used by UI helpers (ex: letting students drag to sort values).
+  dataset?: number[];
   // Optional: special interaction mode for answering.
   // (Default/undefined = normal numeric input.)
   kind?: "boxplot_build";
@@ -810,6 +813,7 @@ function getU82Question(req: QuestionRequest): Question {
 		const s = fiveNumberSummary(data);
 		return {
 			id: qid("u8_2_dataset_min", Number(s.min)),
+			dataset: data.slice(),
 			prompt: `${dataPrompt}\n\nTo create a box plot, you need the five-number summary. What is the minimum value?`,
 			answer: s.min,
 			hint: "Sort the data. The minimum is the smallest value.",
@@ -822,6 +826,7 @@ function getU82Question(req: QuestionRequest): Question {
 		const s = fiveNumberSummary(data);
 		return {
 			id: qid("u8_2_dataset_max", Number(s.max)),
+			dataset: data.slice(),
 			prompt: `${dataPrompt}\n\nTo create a box plot, you need the five-number summary. What is the maximum value?`,
 			answer: s.max,
 			hint: "Sort the data. The maximum is the largest value.",
@@ -834,6 +839,7 @@ function getU82Question(req: QuestionRequest): Question {
     const s = fiveNumberSummary(data);
     return {
       id: qid("u8_2_dataset_median", Number(s.median)),
+		dataset: data.slice(),
 			prompt: `${dataPrompt}\n\nTo create a box plot, you need the five-number summary. What is the median (Q2)?`,
       answer: s.median,
       hint: "Sort the data. The median is the middle value (or average of the two middle values).",
@@ -846,6 +852,7 @@ function getU82Question(req: QuestionRequest): Question {
     const s = fiveNumberSummary(data);
     return {
       id: qid("u8_2_dataset_q1", Number(s.q1)),
+		dataset: data.slice(),
 			prompt: `${dataPrompt}\n\nTo create a box plot, you need the five-number summary. Find Quartile 1 (Q1).`,
       answer: s.q1,
       hint: "Sort the data. Split it into lower/upper halves (exclude the median if there is one), then take the median of the LOWER half.",
@@ -858,6 +865,7 @@ function getU82Question(req: QuestionRequest): Question {
     const s = fiveNumberSummary(data);
     return {
       id: qid("u8_2_dataset_q3", Number(s.q3)),
+		dataset: data.slice(),
 			prompt: `${dataPrompt}\n\nTo create a box plot, you need the five-number summary. Find Quartile 3 (Q3).`,
       answer: s.q3,
       hint: "Sort the data. Split it into lower/upper halves (exclude the median if there is one), then take the median of the UPPER half.",

@@ -14,6 +14,7 @@ import { SUPPLIES_POOL_10 } from "../content/supplies";
 import { CONSUMABLES_10 } from "../content/consumables";
 import { QuestionVizView } from "../components/QuestionViz";
 import { BoxPlotBuilder, defaultBuildStart } from "../components/BoxPlotBuilder";
+import { NumberReorderHelper } from "../components/NumberReorderHelper";
 
 function pct(current: number, max: number) {
   if (max <= 0) return 0;
@@ -2241,6 +2242,16 @@ function onDropPlayZone(e: React.DragEvent) {
               ) : awaiting.question.viz ? (
                 <QuestionVizView viz={awaiting.question.viz as any} />
               ) : null}
+
+              {(() => {
+                const q: any = awaiting.question as any;
+                const tags = Array.isArray(q?.tags) ? q.tags.map((x: any) => String(x ?? "")) : [];
+                const hasDataset = Array.isArray(q?.dataset) && q.dataset.length > 0;
+                const isCreate = tags.includes("create_boxplot");
+                const isBuilder = String(q?.kind ?? "") === "boxplot_build";
+                if (!hasDataset || !isCreate || isBuilder) return null;
+                return <NumberReorderHelper values={q.dataset as any} label="Drag to sort the data (helper)" />;
+              })()}
               <div style={{ fontSize: 18, marginTop: 10, whiteSpace: "pre-wrap" }}>{awaiting.question.prompt}</div>
               {props.showHints !== false && awaiting.question.hint && (
                 <div className="muted" style={{ marginTop: 10 }}>

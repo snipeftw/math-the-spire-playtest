@@ -15,6 +15,7 @@ import { getEventById } from "../content/events";
 import { eventImg } from "../content/assetUrls";
 import { sfx } from "../game/sfx";
 import { QuestionVizView } from "../components/QuestionViz";
+import { NumberReorderHelper } from "../components/NumberReorderHelper";
 
 type ShopItemKind = "card" | "consumable" | "supply";
 
@@ -1918,6 +1919,15 @@ return (ev?.choices ?? []).map((c) => ({
                               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                 <div style={{ fontWeight: 900 }}>Answer to negate the penalty</div>
                                 {quiz.question?.viz ? <QuestionVizView viz={quiz.question.viz as any} /> : null}
+                                {(() => {
+                                  const q: any = quiz.question as any;
+                                  const tags = Array.isArray(q?.tags) ? q.tags.map((x: any) => String(x ?? "")) : [];
+                                  const hasDataset = Array.isArray(q?.dataset) && q.dataset.length > 0;
+                                  const isCreate = tags.includes("create_boxplot");
+                                  const isBuilder = String(q?.kind ?? "") === "boxplot_build";
+                                  if (!hasDataset || !isCreate || isBuilder) return null;
+                                  return <NumberReorderHelper values={q.dataset as any} label="Drag to sort the data (helper)" />;
+                                })()}
                                 <div style={{ fontSize: 18, whiteSpace: "pre-wrap" }}>{String(quiz.question?.prompt ?? "Solve:")}</div>
                                 {props.showHints !== false && quiz.question?.hint ? (
                                   <div className="muted" style={{ fontSize: 12 }}>Hint: {String(quiz.question.hint)}</div>
