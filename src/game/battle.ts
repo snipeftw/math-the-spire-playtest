@@ -1067,6 +1067,10 @@ export type BattleState = {
       answer: string | number;
       hint?: string;
       viz?: any;
+      // Optional extras preserved for UI helpers (drag-to-sort, etc.)
+      dataset?: number[];
+      tags?: string[];
+      sig?: string;
       kind?: "boxplot_build";
       build?: any;
     };
@@ -1651,6 +1655,10 @@ export function chooseCard(state: BattleState, rng: RNG, cardId: string): Battle
         answer: q.answer,
         hint: q.hint,
         viz: (q as any).viz,
+        // Preserve extra fields used by UI helpers (ex: drag-to-sort datasets, box-plot read helpers).
+        dataset: (q as any).dataset,
+        tags: (q as any).tags,
+        sig: (q as any).sig,
         kind: (q as any).kind,
         build: (q as any).build,
       },
@@ -2755,7 +2763,19 @@ export function stepEnemyTurn(state: BattleState, rng: RNG): BattleState {
           meta: meta0,
           awaiting: {
             cardId: "forced_question",
-            question: { id: q.id, prompt: q.prompt, answer: q.answer, hint: q.hint, viz: (q as any).viz, kind: (q as any).kind, build: (q as any).build },
+            question: {
+              id: q.id,
+              prompt: q.prompt,
+              answer: q.answer,
+              hint: q.hint,
+              viz: (q as any).viz,
+              // Preserve extra fields used by UI helpers (ex: drag-to-sort datasets, box-plot read helpers).
+              dataset: (q as any).dataset,
+              tags: (q as any).tags,
+              sig: (q as any).sig,
+              kind: (q as any).kind,
+              build: (q as any).build,
+            },
           },
         };
       }
