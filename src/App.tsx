@@ -490,6 +490,36 @@ export default function App() {
   const [qDebugPackId, setQDebugPackId] = useState<string>("");
   const [qDebugRequireTagsText, setQDebugRequireTagsText] = useState<string>("");
 
+  const QUESTION_FORCE_PRESETS: { group: string; label: string; packId: string; tags: string }[] = [
+    // Unit 8.1
+    { group: "8.1", label: "Mean", packId: "u8_1", tags: "mean" },
+    { group: "8.1", label: "Median", packId: "u8_1", tags: "median" },
+    { group: "8.1", label: "Mode", packId: "u8_1", tags: "mode" },
+    { group: "8.1", label: "Range", packId: "u8_1", tags: "range" },
+
+    // Unit 8.2
+    { group: "8.2", label: "Read", packId: "u8_2", tags: "read" },
+    { group: "8.2", label: "Build (battle)", packId: "u8_2", tags: "build" },
+
+    // Unit 8.3
+    { group: "8.3", label: "Truncated axis", packId: "u8_3", tags: "truncate" },
+    { group: "8.3", label: "Pictograph exaggeration", packId: "u8_3", tags: "pictograph" },
+    { group: "8.3", label: "% without base", packId: "u8_3", tags: "percent" },
+    { group: "8.3", label: "Two points", packId: "u8_3", tags: "two_points" },
+    { group: "8.3", label: "Counts vs rates", packId: "u8_3", tags: "rates" },
+    { group: "8.3", label: "Correlation vs causation", packId: "u8_3", tags: "correlation" },
+    { group: "8.3", label: "Survey sampling", packId: "u8_3", tags: "survey" },
+    { group: "8.3", label: "Base rate trap", packId: "u8_3", tags: "base_rate" },
+    { group: "8.3", label: "Missing context", packId: "u8_3", tags: "context" },
+  ];
+
+  const QUESTION_FORCE_GROUPS = QUESTION_FORCE_PRESETS.reduce((acc, p) => {
+    (acc[p.group] ||= []).push(p);
+    return acc;
+  }, {} as Record<string, { group: string; label: string; packId: string; tags: string }[]>);
+
+
+
   const [showDeck, setShowDeck] = useState(false);
   const [consumableModalId, setConsumableModalId] = useState<string | null>(null);
   const [trashRemoveOpen, setTrashRemoveOpen] = useState(false);
@@ -1452,26 +1482,29 @@ export default function App() {
                     </span>
                   </div>
 
-                  <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button className="btn btn-sm" onClick={() => { setQDebugPackId("u8_1"); setQDebugRequireTagsText("mean"); }}>
-                      8.1 Mean
-                    </button>
-                    <button className="btn btn-sm" onClick={() => { setQDebugPackId("u8_1"); setQDebugRequireTagsText("median"); }}>
-                      8.1 Median
-                    </button>
-                    <button className="btn btn-sm" onClick={() => { setQDebugPackId("u8_1"); setQDebugRequireTagsText("mode"); }}>
-                      8.1 Mode
-                    </button>
-                    <button className="btn btn-sm" onClick={() => { setQDebugPackId("u8_1"); setQDebugRequireTagsText("range"); }}>
-                      8.1 Range
-                    </button>
-                    <button className="btn btn-sm" onClick={() => { setQDebugPackId("u8_2"); setQDebugRequireTagsText("read"); }}>
-                      8.2 Read
-                    </button>
-                    <button className="btn btn-sm" onClick={() => { setQDebugPackId("u8_2"); setQDebugRequireTagsText("build"); }}>
-                      8.2 Build (battle)
-                    </button>
-                  </div>
+                  {Object.keys(QUESTION_FORCE_GROUPS)
+                    .sort()
+                    .map((group) => (
+                      <div key={group} style={{ marginTop: 8 }}>
+                        <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                          Presets: Unit {group}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          {QUESTION_FORCE_GROUPS[group].map((p) => (
+                            <button
+                              key={group + "-" + p.label}
+                              className="btn btn-sm"
+                              onClick={() => {
+                                setQDebugPackId(p.packId);
+                                setQDebugRequireTagsText(p.tags);
+                              }}
+                            >
+                              {group} {p.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                 </div>
               )}
             </div>

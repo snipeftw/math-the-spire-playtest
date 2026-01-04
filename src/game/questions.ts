@@ -86,6 +86,11 @@ export const QUESTION_PACKS: QuestionPack[] = [
     label: "Unit 8.2 — Quartiles & Box Plots",
     description: "Five-number summaries and interpreting box-and-whisker plots.",
   },
+  {
+    id: "u8_3",
+    label: "Unit 8.3 — Misuse of Data in the Media",
+    description: "Spot misleading graphs, sampling issues, and shaky conclusions.",
+  },
 ];
 
 export type QuestionRequest = {
@@ -948,9 +953,202 @@ function getU82Question(req: QuestionRequest): Question {
   };
 }
 
+
+function getU83Question(req: QuestionRequest): Question {
+  const { rng, difficulty } = req;
+
+  const kind =
+    difficulty === 1
+      ? pick(rng, [
+          "TRUNCATED_AXIS",
+          "PICTOGRAPH_EXAGGERATION",
+          "PERCENT_NO_BASE",
+          "TWO_POINTS",
+          "RAW_COUNTS_VS_RATES",
+        ] as const)
+      : difficulty === 2
+        ? pick(rng, [
+            "TRUNCATED_AXIS",
+            "PICTOGRAPH_EXAGGERATION",
+            "PERCENT_NO_BASE",
+            "TWO_POINTS",
+            "RAW_COUNTS_VS_RATES",
+            "CORRELATION_CAUSATION",
+            "SURVEY_CLAIM",
+          ] as const)
+        : pick(rng, [
+            "TRUNCATED_AXIS",
+            "PICTOGRAPH_EXAGGERATION",
+            "PERCENT_NO_BASE",
+            "TWO_POINTS",
+            "RAW_COUNTS_VS_RATES",
+            "CORRELATION_CAUSATION",
+            "SURVEY_CLAIM",
+            "BASE_RATE_TRAP",
+            "MISSING_CONTEXT",
+          ] as const);
+
+  const mc = (
+    stem: string,
+    options: [string, string, string, string],
+    correct: 1 | 2 | 3 | 4,
+    hint: string,
+    tags: string[]
+  ): Question => {
+    return {
+      id: qid("u8_3", correct),
+      prompt: choicePromptGeneric(stem, options),
+      answer: correct,
+      hint,
+      difficulty,
+      tags: ["u8_3", ...tags],
+    };
+  };
+
+  if (kind === "TRUNCATED_AXIS") {
+    return mc(
+      "A news graph shows interest rates changing from 4.8% to 5.1%, but the y-axis starts at 4.7% (not 0%).\n\nWhat is the main problem with this presentation?",
+      [
+        "The y-axis is truncated, making a small change look dramatic",
+        "The graph should always be a pie chart instead of a line graph",
+        "Percentages can never be graphed",
+        "The x-axis should be removed",
+      ],
+      1,
+      "Check whether the vertical axis starts at 0 and whether the scale exaggerates differences.",
+      ["misleading_graph", "axis", "truncate"]
+    );
+  }
+
+  if (kind === "PICTOGRAPH_EXAGGERATION") {
+    return mc(
+      "An infographic shows graduation rate rising from 75% to 82% using pictures (stacks of books) that look almost twice as tall.\n\nHow is the graphic misleading?",
+      [
+        "The pictures are scaled in a way that exaggerates the size of the change",
+        "Percentages cannot be compared across years",
+        "The data must be fake because it uses pictures",
+        "A line graph is illegal for percentages",
+      ],
+      1,
+      "When images change in height/area/volume, the visual change can be much bigger than the real change.",
+      ["misleading_graph", "pictograph", "exaggeration"]
+    );
+  }
+
+  if (kind === "PERCENT_NO_BASE") {
+    const a = randInt(rng, 1, 10);
+    const b = a + randInt(rng, 1, 10);
+    const pct = Math.round(((b - a) / a) * 100);
+    return mc(
+      `A headline says: “Club membership increased by ${pct}%!”\nThe club went from ${a} members to ${b} members.\n\nWhat’s the best interpretation?`,
+      [
+        "The percent is correct, but without the starting number it can sound more impressive than it is",
+        "Any percent increase over 50% means the club is huge",
+        "Percent increases are always dishonest",
+        "This proves the club is the biggest in the school",
+      ],
+      1,
+      "Percent change needs the starting amount to understand the real impact.",
+      ["percent", "base_value", "context"]
+    );
+  }
+
+  if (kind === "TWO_POINTS") {
+    return mc(
+      "A graph shows traffic deaths were 620 in 1955 and 510 in 1956. A caption says: “New enforcement policy caused deaths to drop.”\n\nWhat is the biggest issue?",
+      [
+        "Two data points aren’t enough to confidently claim a trend or cause",
+        "The numbers are too round to be real",
+        "Deaths can’t be compared year to year",
+        "A bar graph should always start at 100",
+      ],
+      1,
+      "With only two points, you can’t tell if it’s normal variation or caused by something else.",
+      ["sample_size", "two_points", "trend"]
+    );
+  }
+
+  if (kind === "RAW_COUNTS_VS_RATES") {
+    return mc(
+      "A chart shows the most drivers in fatal crashes are ages 20–24. Someone concludes: “20–24 year olds are the worst drivers.”\n\nWhat key information is missing?",
+      [
+        "How many people are in each age group / how much they drive (a rate, not just counts)",
+        "The colour used for each bar",
+        "Whether the chart was made in PowerPoint",
+        "The brand of the cars",
+      ],
+      1,
+      "Counts alone can be misleading if groups differ in size or exposure (e.g., miles driven).",
+      ["denominator", "rates", "per_capita"]
+    );
+  }
+
+  if (kind === "CORRELATION_CAUSATION") {
+    return mc(
+      "A graph shows that when ice cream sales go up, drownings also go up.\n\nWhat is the best conclusion?",
+      [
+        "Ice cream causes drownings",
+        "Drownings cause ice cream sales",
+        "They may be correlated, but another factor (like hot weather) could explain both",
+        "The graph proves there is no relationship",
+      ],
+      3,
+      "Correlation doesn’t prove causation; look for a plausible third variable.",
+      ["correlation", "causation", "confounding"]
+    );
+  }
+
+  if (kind === "SURVEY_CLAIM") {
+    return mc(
+      "An ad says: “9 out of 10 dentists recommend Brand X.”\n\nWhich question would best test whether this claim is trustworthy?",
+      [
+        "How many dentists were surveyed and how were they chosen?",
+        "What colour is the toothpaste?",
+        "How long is the TV commercial?",
+        "Is Brand X sold in stores?",
+      ],
+      1,
+      "Sampling matters: who was asked, how many, and whether the survey was biased.",
+      ["survey", "sampling", "bias"]
+    );
+  }
+
+  if (kind === "BASE_RATE_TRAP") {
+    return mc(
+      "A pie chart shows 75% of drivers injured in crashes were NOT drunk. Someone concludes: “Drunk driving isn’t a big issue.”\n\nWhat’s wrong with this reasoning?",
+      [
+        "It ignores how many drunk vs sober drivers are on the road (base rates)",
+        "Pie charts cannot show injury data",
+        "75% means the data is made up",
+        "If it’s not 100% then it doesn’t matter",
+      ],
+      1,
+      "You need rates (risk per driver/mile), not just the share of injuries.",
+      ["base_rate", "denominator", "risk"]
+    );
+  }
+
+  // MISSING_CONTEXT
+  return mc(
+    "A graph shows gas prices rising sharply over 2 months. The y-axis starts at $2.90 and ends at $3.60.\n\nWhat additional information would help judge the claim “prices are skyrocketing”?",
+    [
+      "A y-axis that starts at 0 or a longer time range for comparison",
+      "A different font",
+      "A bigger title",
+      "More decimals on the labels",
+    ],
+    1,
+    "Context matters: scale and time window can change the impression a lot.",
+    ["context", "scale", "cherry_pick"]
+  );
+}
+
+
 const PACK_GENERATORS: Record<string, (req: QuestionRequest) => Question> = {
   u8_1: getU81Question,
   u8_2: getU82Question,
+  u8_3: getU83Question,
+
 };
 
 export function getQuestion(req: QuestionRequest): Question {
