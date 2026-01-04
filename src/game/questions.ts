@@ -35,6 +35,22 @@ export type QuestionViz =
       axisMin?: number;
       axisMax?: number;
       tickStep?: number;
+    }
+  | {
+      kind: "image";
+      title?: string;
+      src: string;
+      alt?: string;
+      caption?: string;
+      maxHeight?: number;
+    }
+  | {
+      kind: "image_pair";
+      title?: string;
+      layout?: "row" | "col";
+      a: { src: string; alt?: string; caption?: string };
+      b: { src: string; alt?: string; caption?: string };
+      maxHeight?: number;
     };
 
 export type Question = {
@@ -993,11 +1009,13 @@ function getU83Question(req: QuestionRequest): Question {
     options: [string, string, string, string],
     correct: 1 | 2 | 3 | 4,
     hint: string,
-    tags: string[]
+    tags: string[],
+    viz?: QuestionViz
   ): Question => {
     return {
       id: qid("u8_3", correct),
       prompt: choicePromptGeneric(stem, options),
+      viz,
       answer: correct,
       hint,
       difficulty,
@@ -1007,7 +1025,7 @@ function getU83Question(req: QuestionRequest): Question {
 
   if (kind === "TRUNCATED_AXIS") {
     return mc(
-      "A news graph shows interest rates changing from 4.8% to 5.1%, but the y-axis starts at 4.7% (not 0%).\n\nWhat is the main problem with this presentation?",
+      "Look at the graph above (same data, different y-axes). What is the main problem with the misleading version?",
       [
         "The y-axis is truncated, making a small change look dramatic",
         "The graph should always be a pie chart instead of a line graph",
@@ -1016,13 +1034,14 @@ function getU83Question(req: QuestionRequest): Question {
       ],
       1,
       "Check whether the vertical axis starts at 0 and whether the scale exaggerates differences.",
-      ["misleading_graph", "axis", "truncate"]
+      ["misleading_graph", "axis", "truncate"],
+      { kind: "image", title: "Graph", src: "/questions/u8_3/slide02_img01.png", alt: "Same data with different y-axes" }
     );
   }
 
   if (kind === "PICTOGRAPH_EXAGGERATION") {
     return mc(
-      "An infographic shows graduation rate rising from 75% to 82% using pictures (stacks of books) that look almost twice as tall.\n\nHow is the graphic misleading?",
+      "Look at the pictograph above. How is it misleading?",
       [
         "The pictures are scaled in a way that exaggerates the size of the change",
         "Percentages cannot be compared across years",
@@ -1031,7 +1050,8 @@ function getU83Question(req: QuestionRequest): Question {
       ],
       1,
       "When images change in height/area/volume, the visual change can be much bigger than the real change.",
-      ["misleading_graph", "pictograph", "exaggeration"]
+      ["misleading_graph", "pictograph", "exaggeration"],
+      { kind: "image", title: "Infographic", src: "/questions/u8_3/slide06_img04.png", alt: "Graduation rate pictograph" }
     );
   }
 
@@ -1055,7 +1075,7 @@ function getU83Question(req: QuestionRequest): Question {
 
   if (kind === "TWO_POINTS") {
     return mc(
-      "A graph shows traffic deaths were 620 in 1955 and 510 in 1956. A caption says: “New enforcement policy caused deaths to drop.”\n\nWhat is the biggest issue?",
+      "Look at the graph above and the caption. What is the biggest issue with the conclusion?",
       [
         "Two data points aren’t enough to confidently claim a trend or cause",
         "The numbers are too round to be real",
@@ -1064,13 +1084,14 @@ function getU83Question(req: QuestionRequest): Question {
       ],
       1,
       "With only two points, you can’t tell if it’s normal variation or caused by something else.",
-      ["sample_size", "two_points", "trend"]
+      ["sample_size", "two_points", "trend"],
+      { kind: "image", title: "Graph", src: "/questions/u8_3/slide15_img13.png", alt: "Traffic deaths shown with two points" }
     );
   }
 
   if (kind === "RAW_COUNTS_VS_RATES") {
     return mc(
-      "A chart shows the most drivers in fatal crashes are ages 20–24. Someone concludes: “20–24 year olds are the worst drivers.”\n\nWhat key information is missing?",
+      "Look at the chart above. Someone concludes: “20–24 year olds are the worst drivers.” What key information is missing?",
       [
         "How many people are in each age group / how much they drive (a rate, not just counts)",
         "The colour used for each bar",
@@ -1079,7 +1100,8 @@ function getU83Question(req: QuestionRequest): Question {
       ],
       1,
       "Counts alone can be misleading if groups differ in size or exposure (e.g., miles driven).",
-      ["denominator", "rates", "per_capita"]
+      ["denominator", "rates", "per_capita"],
+      { kind: "image", title: "Chart", src: "/questions/u8_3/slide10_img08.png", alt: "Fatal crashes by age group (counts)" }
     );
   }
 
@@ -1100,7 +1122,7 @@ function getU83Question(req: QuestionRequest): Question {
 
   if (kind === "SURVEY_CLAIM") {
     return mc(
-      "An ad says: “9 out of 10 dentists recommend Brand X.”\n\nWhich question would best test whether this claim is trustworthy?",
+      "Look at the ad above. Which question would best test whether this claim is trustworthy?",
       [
         "How many dentists were surveyed and how were they chosen?",
         "What colour is the toothpaste?",
@@ -1109,13 +1131,14 @@ function getU83Question(req: QuestionRequest): Question {
       ],
       1,
       "Sampling matters: who was asked, how many, and whether the survey was biased.",
-      ["survey", "sampling", "bias"]
+      ["survey", "sampling", "bias"],
+      { kind: "image", title: "Ad", src: "/questions/u8_3/slide12_img10.png", alt: "9 out of 10 dentists ad" }
     );
   }
 
   if (kind === "BASE_RATE_TRAP") {
     return mc(
-      "A pie chart shows 75% of drivers injured in crashes were NOT drunk. Someone concludes: “Drunk driving isn’t a big issue.”\n\nWhat’s wrong with this reasoning?",
+      "Look at the pie chart above. Someone concludes: “Drunk driving isn’t a big issue.” What’s wrong with this reasoning?",
       [
         "It ignores how many drunk vs sober drivers are on the road (base rates)",
         "Pie charts cannot show injury data",
@@ -1124,7 +1147,8 @@ function getU83Question(req: QuestionRequest): Question {
       ],
       1,
       "You need rates (risk per driver/mile), not just the share of injuries.",
-      ["base_rate", "denominator", "risk"]
+      ["base_rate", "denominator", "risk"],
+      { kind: "image", title: "Pie chart", src: "/questions/u8_3/slide09_img07.png", alt: "NYC crash injuries DUI pie chart" }
     );
   }
 
@@ -1139,7 +1163,8 @@ function getU83Question(req: QuestionRequest): Question {
     ],
     1,
     "Context matters: scale and time window can change the impression a lot.",
-    ["context", "scale", "cherry_pick"]
+    ["context", "scale", "cherry_pick"],
+    { kind: "image", title: "Graph", src: "/questions/u8_3/slide08_img06.png", alt: "Gas prices over 2 months with truncated y-axis" }
   );
 }
 

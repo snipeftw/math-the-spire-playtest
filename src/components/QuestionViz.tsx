@@ -118,6 +118,76 @@ function BoxPlotSvg({
 export function QuestionVizView({ viz }: { viz: QuestionViz }) {
   if (!viz) return null;
 
+  if (viz.kind === "image") {
+    return (
+      <div
+        className="panel soft"
+        style={{
+          marginTop: 10,
+          border: "1px solid rgba(255,255,255,0.10)",
+          background: "rgba(0,0,0,0.35)",
+        }}
+      >
+        {viz.title ? <div style={{ fontWeight: 900, fontSize: 13, marginBottom: 6 }}>{viz.title}</div> : null}
+        <img
+          src={viz.src}
+          alt={viz.alt ?? viz.caption ?? "Question visual"}
+          style={{
+            width: "100%",
+            height: "auto",
+            maxHeight: viz.maxHeight ?? 280,
+            objectFit: "contain",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.10)",
+            background: "rgba(0,0,0,0.25)",
+          }}
+        />
+        {viz.caption ? (
+          <div style={{ marginTop: 6, fontSize: 12, opacity: 0.85 }}>{viz.caption}</div>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (viz.kind === "image_pair") {
+    const layout = viz.layout ?? "col";
+    const dir = layout === "row" ? "row" : "column";
+    return (
+      <div
+        className="panel soft"
+        style={{
+          marginTop: 10,
+          border: "1px solid rgba(255,255,255,0.10)",
+          background: "rgba(0,0,0,0.35)",
+        }}
+      >
+        {viz.title ? <div style={{ fontWeight: 900, fontSize: 13, marginBottom: 6 }}>{viz.title}</div> : null}
+        <div style={{ display: "flex", flexDirection: dir as any, gap: 10, alignItems: "stretch" }}>
+          {[viz.a, viz.b].map((img, idx) => (
+            <div key={idx} style={{ flex: 1, minWidth: 0 }}>
+              <img
+                src={img.src}
+                alt={img.alt ?? img.caption ?? "Question visual"}
+                style={{
+                  width: "100%",
+                  height: "auto",
+                  maxHeight: viz.maxHeight ?? 260,
+                  objectFit: "contain",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  background: "rgba(0,0,0,0.25)",
+                }}
+              />
+              {img.caption ? (
+                <div style={{ marginTop: 6, fontSize: 12, opacity: 0.85 }}>{img.caption}</div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (viz.kind === "boxplot") {
     const axisMin = Number.isFinite(viz.axisMin as any) ? (viz.axisMin as number) : Math.floor(viz.min);
     const axisMax = Number.isFinite(viz.axisMax as any) ? (viz.axisMax as number) : Math.ceil(viz.max);
