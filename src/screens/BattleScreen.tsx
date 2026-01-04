@@ -15,6 +15,7 @@ import { CONSUMABLES_10 } from "../content/consumables";
 import { QuestionVizView } from "../components/QuestionViz";
 import { BoxPlotBuilder, defaultBuildStart } from "../components/BoxPlotBuilder";
 import { NumberReorderHelper } from "../components/NumberReorderHelper";
+import { KeyValuesReorderHelper } from "../components/KeyValuesReorderHelper";
 
 function pct(current: number, max: number) {
   if (max <= 0) return 0;
@@ -2247,10 +2248,26 @@ function onDropPlayZone(e: React.DragEvent) {
                 const q: any = awaiting.question as any;
                 const tags = Array.isArray(q?.tags) ? q.tags.map((x: any) => String(x ?? "")) : [];
                 const hasDataset = Array.isArray(q?.dataset) && q.dataset.length > 0;
-                const isCreate = tags.includes("create_boxplot");
                 const isBuilder = String(q?.kind ?? "") === "boxplot_build";
-                if (!hasDataset || !isCreate || isBuilder) return null;
-                return <NumberReorderHelper values={q.dataset as any} label="Drag to sort the data (helper)" />;
+
+                // Sorting helper for any dataset-based question (Unit 8.1 + Unit 8.2, etc.)
+                if (hasDataset && !isBuilder) {
+                  return <NumberReorderHelper values={q.dataset as any} label="Drag to sort the data (helper)" />;
+                }
+
+                // For “read the box plot” questions, give students the five key values as draggable chips
+                // (in a shuffled order) so they can order them visually while reading the plot.
+                const viz: any = q?.viz;
+                const isBoxplotRead = viz && viz.kind === "boxplot" && tags.includes("boxplot");
+                if (!isBoxplotRead) return null;
+                const seed = String(q?.sig ?? q?.id ?? q?.prompt ?? "");
+                return (
+                  <KeyValuesReorderHelper
+                    seed={seed}
+                    values={[Number(viz.min), Number(viz.q1), Number(viz.median), Number(viz.q3), Number(viz.max)]}
+                    label="Drag to order the 5 key values (helper)"
+                  />
+                );
               })()}
               <div style={{ fontSize: 18, marginTop: 10, whiteSpace: "pre-wrap" }}>{awaiting.question.prompt}</div>
               {props.showHints !== false && awaiting.question.hint && (

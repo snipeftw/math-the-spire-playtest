@@ -422,6 +422,7 @@ function getU81Question(req: QuestionRequest): Question {
     return {
       id: qid("u8_1_mean", ans),
       prompt: `${promptBase}\n\nWhat is the mean? (Round to 2 decimals)` ,
+      dataset: data.slice(),
       answer: ans,
       hint: "Add all values, then divide by how many values there are.",
       difficulty,
@@ -446,6 +447,7 @@ function getU81Question(req: QuestionRequest): Question {
     return {
       id: qid("u8_1_choose_typical", outlier),
       prompt: choicePrompt(stem),
+      dataset: base.slice(),
       answer: 2,
       hint: "The median is resistant to outliers, so it best represents a typical value in skewed data.",
       difficulty,
@@ -472,6 +474,7 @@ function getU81Question(req: QuestionRequest): Question {
     return {
       id: qid("u8_1_choose_mode", m),
       prompt: choicePrompt(stem),
+      dataset: d.slice(),
       answer: 3,
       hint: "The mode is the value that appears most often.",
       difficulty,
@@ -486,6 +489,7 @@ function getU81Question(req: QuestionRequest): Question {
     return {
       id: qid("u8_1_choose_range", data.length),
       prompt: choicePrompt(stem),
+      dataset: data.slice(),
       answer: 4,
       hint: "Range measures spread: max − min.",
       difficulty,
@@ -525,6 +529,7 @@ function getU81Question(req: QuestionRequest): Question {
     return {
       id: qid("u8_1_mean_no_outlier", ans),
       prompt: `${promptBase}\n\nRemove the outlier value ${remove}. What is the new mean? (Round to 2 decimals)`,
+      dataset: data.slice(),
       answer: ans,
       hint: "Remove the outlier, then compute the mean of the remaining values.",
       difficulty,
@@ -537,6 +542,7 @@ function getU81Question(req: QuestionRequest): Question {
     return {
       id: qid("u8_1_median", ans),
       prompt: `${promptBase}\n\nWhat is the median?`,
+      dataset: data.slice(),
       answer: ans,
       hint: "Order the values; the median is the middle value (or average of the two middle values).",
       difficulty,
@@ -564,6 +570,7 @@ function getU81Question(req: QuestionRequest): Question {
     return {
       id: qid("u8_1_mode", m),
       prompt: `${modeBase}\n\nWhat is the mode?`,
+      dataset: d.slice(),
       answer: m,
       hint: "The mode is the value that appears most often.",
       difficulty,
@@ -576,6 +583,7 @@ function getU81Question(req: QuestionRequest): Question {
   return {
     id: qid("u8_1_range", ans),
     prompt: `${promptBase}\n\nWhat is the range?`,
+    dataset: data.slice(),
     answer: ans,
     hint: "Range = max − min.",
     difficulty,

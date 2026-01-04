@@ -16,6 +16,7 @@ import { eventImg } from "../content/assetUrls";
 import { sfx } from "../game/sfx";
 import { QuestionVizView } from "../components/QuestionViz";
 import { NumberReorderHelper } from "../components/NumberReorderHelper";
+import { KeyValuesReorderHelper } from "../components/KeyValuesReorderHelper";
 
 type ShopItemKind = "card" | "consumable" | "supply";
 
@@ -1923,10 +1924,22 @@ return (ev?.choices ?? []).map((c) => ({
                                   const q: any = quiz.question as any;
                                   const tags = Array.isArray(q?.tags) ? q.tags.map((x: any) => String(x ?? "")) : [];
                                   const hasDataset = Array.isArray(q?.dataset) && q.dataset.length > 0;
-                                  const isCreate = tags.includes("create_boxplot");
                                   const isBuilder = String(q?.kind ?? "") === "boxplot_build";
-                                  if (!hasDataset || !isCreate || isBuilder) return null;
-                                  return <NumberReorderHelper values={q.dataset as any} label="Drag to sort the data (helper)" />;
+                                  if (hasDataset && !isBuilder) {
+                                    return <NumberReorderHelper values={q.dataset as any} label="Drag to sort the data (helper)" />;
+                                  }
+
+                                  const viz: any = q?.viz;
+                                  const isBoxplotRead = viz && viz.kind === "boxplot" && tags.includes("boxplot");
+                                  if (!isBoxplotRead) return null;
+                                  const seed = String(q?.sig ?? q?.id ?? q?.prompt ?? "");
+                                  return (
+                                    <KeyValuesReorderHelper
+                                      seed={seed}
+                                      values={[Number(viz.min), Number(viz.q1), Number(viz.median), Number(viz.q3), Number(viz.max)]}
+                                      label="Drag to order the 5 key values (helper)"
+                                    />
+                                  );
                                 })()}
                                 <div style={{ fontSize: 18, whiteSpace: "pre-wrap" }}>{String(quiz.question?.prompt ?? "Solve:")}</div>
                                 {props.showHints !== false && quiz.question?.hint ? (
