@@ -17,6 +17,7 @@ import type { MapNode } from "./game/map";
 import { sfx } from "./game/sfx";
 import { music } from "./game/music";
 import { decodeRunCode, encodeRunCode } from "./game/runCode";
+import { QUESTION_PACKS } from "./game/questions";
 
 import { CHARACTERS_3 } from "./content/characters";
 import { SUPPLIES_POOL_10 } from "./content/supplies";
@@ -484,6 +485,11 @@ export default function App() {
   const [compactMode, setCompactMode] = useState(loadCompactMode());
   const [showHints, setShowHints] = useState(loadShowHints());
 
+  // Hidden teacher-only question debug (separate from the old debug menu)
+  const [qDebugUnlocked, setQDebugUnlocked] = useState(false);
+  const [qDebugPackId, setQDebugPackId] = useState<string>("");
+  const [qDebugRequireTagsText, setQDebugRequireTagsText] = useState<string>("");
+
   const [showDeck, setShowDeck] = useState(false);
   const [consumableModalId, setConsumableModalId] = useState<string | null>(null);
   const [trashRemoveOpen, setTrashRemoveOpen] = useState(false);
@@ -545,6 +551,30 @@ export default function App() {
     setLoadoutBox(d);
     saveLoadoutBox(d);
   };
+
+  // Question debug unlock: Ctrl+Shift+Alt+Q (not persisted, resets on refresh)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      try {
+        if (e.ctrlKey && e.shiftKey && e.altKey && (e.key === "q" || e.key === "Q")) {
+          setQDebugUnlocked(true);
+          try { sfx.click(); } catch {}
+        }
+      } catch {}
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // When unlocked, prefill the debug controls with any current setting.
+  useEffect(() => {
+    if (!qDebugUnlocked) return;
+    try {
+      setQDebugPackId(String((state as any).debugForceQuestionPackId ?? ""));
+      const tags = (state as any).debugForceQuestionRequireTags;
+      setQDebugRequireTagsText(Array.isArray(tags) ? tags.join(", ") : "");
+    } catch {}
+  }, [qDebugUnlocked]);
 
   // floating tip state (rendered to body)
   const [floatingTip, setFloatingTip] = useState<FloatingTip | null>(null);
@@ -1343,6 +1373,107 @@ export default function App() {
                   Run Code
                 </button>
               </div>
+
+              {qDebugUnlocked && (
+                <div className="panel soft" style={{ width: "100%", padding: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: 1 }}>
+                      QUESTION DEBUG
+                    </div>
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      Ctrl+Shift+Alt+Q to unlock (reload to lock)
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <label className="badge" style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+                      Pack
+                      <select
+                        value={qDebugPackId}
+                        onChange={(e) => setQDebugPackId(e.target.value)}
+                        style={{ marginLeft: 8, padding: "2px 6px", borderRadius: 8 }}
+                      >
+                        <option value="">Any selected pack</option>
+                        {QUESTION_PACKS.map((p) => (
+                          <option key={p.id} value={p.id}>{p.label}</option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="badge" style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+                      Required tags
+                      <input
+                        value={qDebugRequireTagsText}
+                        onChange={(e) => setQDebugRequireTagsText(e.target.value)}
+                        placeholder="e.g. mean, median, q1, build"
+                        style={{ width: 260, padding: "2px 6px", borderRadius: 8 }}
+                      />
+                    </label>
+
+                    <button
+                      className="btn btn-sm"
+                      onMouseEnter={() => { try { sfx.cardHover(); } catch {} }}
+                      onClick={() => {
+                        try { sfx.click(); } catch {}
+                        const tags = qDebugRequireTagsText
+                          .split(",")
+                          .map((t) => t.trim())
+                          .filter(Boolean);
+                        if (!qDebugPackId && tags.length === 0) {
+                          dispatch({ type: "DEBUG_CLEAR_QUESTION_FORCE" } as any);
+                        } else {
+                          dispatch({ type: "DEBUG_SET_QUESTION_FORCE", packId: qDebugPackId || null, requireTags: tags.length ? tags : null } as any);
+                        }
+                      }}
+                      title="Apply question forcing (best-effort; no-repeats still applies)"
+                    >
+                      Apply
+                    </button>
+
+                    <button
+                      className="btn btn-sm"
+                      onMouseEnter={() => { try { sfx.cardHover(); } catch {} }}
+                      onClick={() => {
+                        try { sfx.click(); } catch {}
+                        dispatch({ type: "DEBUG_CLEAR_QUESTION_FORCE" } as any);
+                        setQDebugPackId("");
+                        setQDebugRequireTagsText("");
+                      }}
+                      title="Clear question forcing"
+                    >
+                      Clear
+                    </button>
+
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      Active: {(state as any).debugForceQuestionPackId ? String((state as any).debugForceQuestionPackId) : "(none)"}
+                      {Array.isArray((state as any).debugForceQuestionRequireTags) && (state as any).debugForceQuestionRequireTags.length
+                        ? ` • tags: ${(state as any).debugForceQuestionRequireTags.join(", ")}`
+                        : ""}
+                    </span>
+                  </div>
+
+                  <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button className="btn btn-sm" onClick={() => { setQDebugPackId("u8_1"); setQDebugRequireTagsText("mean"); }}>
+                      8.1 Mean
+                    </button>
+                    <button className="btn btn-sm" onClick={() => { setQDebugPackId("u8_1"); setQDebugRequireTagsText("median"); }}>
+                      8.1 Median
+                    </button>
+                    <button className="btn btn-sm" onClick={() => { setQDebugPackId("u8_1"); setQDebugRequireTagsText("mode"); }}>
+                      8.1 Mode
+                    </button>
+                    <button className="btn btn-sm" onClick={() => { setQDebugPackId("u8_1"); setQDebugRequireTagsText("range"); }}>
+                      8.1 Range
+                    </button>
+                    <button className="btn btn-sm" onClick={() => { setQDebugPackId("u8_2"); setQDebugRequireTagsText("read"); }}>
+                      8.2 Read
+                    </button>
+                    <button className="btn btn-sm" onClick={() => { setQDebugPackId("u8_2"); setQDebugRequireTagsText("build"); }}>
+                      8.2 Build (battle)
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

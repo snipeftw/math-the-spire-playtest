@@ -86,7 +86,16 @@ export function tryUseConsumableInBattle(opts: {
     if (!state.awaiting) {
       return { next: { ...state, lastResult: { correct: false, message: "Answer Key — no question to solve." } }, used: false };
     }
-    const answer = String(state.awaiting.question.answer);
+    const q: any = state.awaiting.question as any;
+    let answer = String(q.answer);
+    try {
+      if (String(q.kind ?? "") === "boxplot_build") {
+        const exp = q?.build?.expected;
+        if (exp) {
+          answer = `${Number(exp.min)},${Number(exp.q1)},${Number(exp.median)},${Number(exp.q3)},${Number(exp.max)}`;
+        }
+      }
+    } catch {}
     const next = resolveCardAnswer({ rng, state, input: answer });
     return {
       next: { ...next, lastResult: { correct: true, message: "🔑 Answer Key — question solved!" } },

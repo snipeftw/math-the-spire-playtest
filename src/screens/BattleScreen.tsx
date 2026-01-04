@@ -13,6 +13,7 @@ import type { SetupSelection } from "../game/state";
 import { SUPPLIES_POOL_10 } from "../content/supplies";
 import { CONSUMABLES_10 } from "../content/consumables";
 import { QuestionVizView } from "../components/QuestionViz";
+import { BoxPlotBuilder, defaultBuildStart } from "../components/BoxPlotBuilder";
 
 function pct(current: number, max: number) {
   if (max <= 0) return 0;
@@ -322,6 +323,11 @@ export default function BattleScreen(props: {
   const awaitingCardDef = awaitingCardId ? cardById.get(awaitingCardId) : null;
   const isChallenge = Boolean((b as any).meta?.isChallenge);
 
+  // Interactive box-plot build questions (Unit 8.2).
+  const [boxplotBuild, setBoxplotBuild] = useState<null | { min: number; q1: number; median: number; q3: number; max: number }>(null);
+  const buildMeta = (awaiting as any)?.question?.build as any;
+  const buildQuestionKey = String((awaiting as any)?.question?.id ?? (awaiting as any)?.question?.prompt ?? "");
+
   // Define blockBadgeStyle early so it can be used in StreakBadge
   const blockBadgeStyle: React.CSSProperties = {
     boxShadow: playerBlockBreakFlash
@@ -342,11 +348,50 @@ export default function BattleScreen(props: {
   // Auto-focus answer input when a question appears
   useEffect(() => {
     if (!awaiting) return;
+    if (String((awaiting as any)?.question?.kind ?? "") === "boxplot_build") return;
     setTimeout(() => {
       answerInputRef.current?.focus();
       answerInputRef.current?.select();
     }, 0);
   }, [awaitingCardId, awaiting]);
+
+  // Initialize builder state when an interactive box-plot question appears.
+  useEffect(() => {
+    if (!awaiting) {
+      setBoxplotBuild(null);
+      return;
+    }
+    if (String((awaiting as any)?.question?.kind ?? "") !== "boxplot_build") {
+      setBoxplotBuild(null);
+      return;
+    }
+    const m: any = (awaiting as any)?.question?.build ?? {};
+    const axisMin = Number(m.axisMin ?? 0);
+    const axisMax = Number(m.axisMax ?? 10);
+    const step = Number(m.tickStep ?? 1);
+
+    let start = defaultBuildStart(axisMin, axisMax);
+    // Snap to tick step if provided
+    const snap = (n: number) => {
+      if (!Number.isFinite(step) || step <= 0) return n;
+      return Math.round(n / step) * step;
+    };
+    start = {
+      min: snap(start.min),
+      q1: snap(start.q1),
+      median: snap(start.median),
+      q3: snap(start.q3),
+      max: snap(start.max),
+    };
+    // Clamp ordering & axis
+    start.min = Math.max(axisMin, Math.min(start.min, start.q1));
+    start.q1 = Math.max(start.min, Math.min(start.q1, start.median));
+    start.median = Math.max(start.q1, Math.min(start.median, start.q3));
+    start.q3 = Math.max(start.median, Math.min(start.q3, start.max));
+    start.max = Math.min(axisMax, Math.max(start.q3, start.max));
+
+    setBoxplotBuild(start);
+  }, [buildQuestionKey]);
 
   const playerMax = b.playerMaxHP ?? 50;
   const enemyMax = b.enemyMaxHP ?? (b.isBoss ? 55 : 32);
@@ -1243,10 +1288,23 @@ export default function BattleScreen(props: {
     if (!awaiting) return;
     try { sfx.confirm(); } catch {}
     try {
-      // If debug skip questions is enabled, allow submitting with empty input
-      const answerInput = props.debugSkipQuestions
-        ? String(input || awaiting.question.answer)
-        : String(input);
+      const qKind = String((awaiting as any)?.question?.kind ?? "");
+
+      // If debug skip questions is enabled, allow submitting with empty input.
+      // For special interactive questions, the answer is encoded from the builder state.
+      let answerInput: string;
+      if (qKind === "boxplot_build") {
+        const exp = (awaiting as any)?.question?.build?.expected;
+        const expStr = exp ? `${Number(exp.min)},${Number(exp.q1)},${Number(exp.median)},${Number(exp.q3)},${Number(exp.max)}` : "";
+        if (props.debugSkipQuestions && !String(input).trim()) {
+          answerInput = expStr;
+        } else {
+          const v = boxplotBuild;
+          answerInput = v ? `${Number(v.min)},${Number(v.q1)},${Number(v.median)},${Number(v.q3)},${Number(v.max)}` : expStr;
+        }
+      } else {
+        answerInput = props.debugSkipQuestions ? String(input || (awaiting as any).question.answer) : String(input);
+      }
       
       console.log("submitAnswer: Calling resolveCardAnswer", { 
         cardId: awaiting.cardId, 
@@ -2167,7 +2225,22 @@ function onDropPlayZone(e: React.DragEvent) {
                 </div>
               )}
 
-              {awaiting.question.viz ? <QuestionVizView viz={awaiting.question.viz as any} /> : null}
+              {String((awaiting as any)?.question?.kind ?? "") === "boxplot_build" && buildMeta ? (
+                <div style={{ marginTop: 12 }}>
+                  <BoxPlotBuilder
+                    axisMin={Number(buildMeta.axisMin ?? 0)}
+                    axisMax={Number(buildMeta.axisMax ?? 10)}
+                    tickStep={Number(buildMeta.tickStep ?? 1)}
+                    value={
+                      boxplotBuild ??
+                      defaultBuildStart(Number(buildMeta.axisMin ?? 0), Number(buildMeta.axisMax ?? 10))
+                    }
+                    onChange={setBoxplotBuild}
+                  />
+                </div>
+              ) : awaiting.question.viz ? (
+                <QuestionVizView viz={awaiting.question.viz as any} />
+              ) : null}
               <div style={{ fontSize: 18, marginTop: 10, whiteSpace: "pre-wrap" }}>{awaiting.question.prompt}</div>
               {props.showHints !== false && awaiting.question.hint && (
                 <div className="muted" style={{ marginTop: 10 }}>
@@ -2256,22 +2329,41 @@ function onDropPlayZone(e: React.DragEvent) {
               <div style={{ height: 12 }} />
 
               <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                <div className="row">
-                  <input
-                    ref={answerInputRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder={awaiting ? "Type your answer (number)" : "Play a card first"}
-                    className="input"
-                    disabled={!awaiting}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") submitAnswer();
-                    }}
-                  />
-                  <button className="btn primary" onClick={submitAnswer} disabled={!awaiting}>
-                    Submit
-                  </button>
-                </div>
+                {awaiting && String((awaiting as any)?.question?.kind ?? "") === "boxplot_build" ? (
+                  <div className="row" style={{ gap: 8 }}>
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        const axisMin = Number((awaiting as any)?.question?.build?.axisMin ?? 0);
+                        const axisMax = Number((awaiting as any)?.question?.build?.axisMax ?? 10);
+                        setBoxplotBuild(defaultBuildStart(axisMin, axisMax));
+                      }}
+                      disabled={!awaiting}
+                    >
+                      Reset Plot
+                    </button>
+                    <button className="btn primary" onClick={submitAnswer} disabled={!awaiting}>
+                      Submit
+                    </button>
+                  </div>
+                ) : (
+                  <div className="row">
+                    <input
+                      ref={answerInputRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder={awaiting ? "Type your answer (number)" : "Play a card first"}
+                      className="input"
+                      disabled={!awaiting}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") submitAnswer();
+                      }}
+                    />
+                    <button className="btn primary" onClick={submitAnswer} disabled={!awaiting}>
+                      Submit
+                    </button>
+                  </div>
+                )}
 
                 <button className="btn" onClick={endMyTurn} disabled={!!awaiting || !!((b as any).awaitingDiscard) || String((b as any).meta?.phase ?? "PLAYER") === "ENEMY"}>
                   End Turn

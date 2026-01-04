@@ -1060,7 +1060,16 @@ export type BattleState = {
 
   awaiting: null | {
     cardId: string;
-    question: { prompt: string; answer: string | number; hint?: string; viz?: any };
+    question: {
+      id?: string;
+      prompt: string;
+      // Numeric answers for most questions; some special modes encode answers as strings.
+      answer: string | number;
+      hint?: string;
+      viz?: any;
+      kind?: "boxplot_build";
+      build?: any;
+    };
   };
 
   awaitingDiscard?: null | {
@@ -1616,7 +1625,13 @@ export function chooseCard(state: BattleState, rng: RNG, cardId: string): Battle
   const q = getQuestion({
     rng,
     difficulty: state.difficulty,
-    packIds: (meta0 as any)?.questionPackIds ?? undefined,
+    packIds: (meta0 as any)?.debugForceQuestionPackId
+      ? [String((meta0 as any).debugForceQuestionPackId)]
+      : (meta0 as any)?.questionPackIds ?? undefined,
+    requireTags: Array.isArray((meta0 as any)?.debugForceQuestionRequireTags)
+      ? (meta0 as any).debugForceQuestionRequireTags
+      : undefined,
+    tags: ["context:battle"],
     avoidSigs: hist0,
   });
   const sig = (q as any)?.sig;
@@ -1631,10 +1646,13 @@ export function chooseCard(state: BattleState, rng: RNG, cardId: string): Battle
     awaiting: {
       cardId,
       question: {
+        id: q.id,
         prompt: q.prompt,
         answer: q.answer,
         hint: q.hint,
         viz: (q as any).viz,
+        kind: (q as any).kind,
+        build: (q as any).build,
       },
     },
     lastResult: null,
@@ -1654,8 +1672,46 @@ export function resolveCardAnswer(opts: { rng: RNG; state: BattleState; input: s
     const cardId = String(awaiting.cardId);
     const expected = awaiting.question?.answer;
 
-    const parsed = Number(String(opts.input ?? "").trim());
-    const correct = Number.isFinite(parsed) && Number.isFinite(Number(expected)) && parsed === Number(expected);
+    const qKind = String((awaiting.question as any)?.kind ?? "");
+    const inputRaw = String(opts.input ?? "").trim();
+
+    // Support special interactive question types (ex: build a box plot).
+    let correct = false;
+    let expectedForLog = String(expected ?? "");
+
+    if (qKind === "boxplot_build") {
+      const exp = (awaiting.question as any)?.build?.expected as any;
+      const expNums = exp
+        ? [Number(exp.min), Number(exp.q1), Number(exp.median), Number(exp.q3), Number(exp.max)]
+        : null;
+
+      const parseFive = (s: string): number[] | null => {
+        const parts0 = s
+          .split(/[,|]/)
+          .map((p) => p.trim())
+          .filter(Boolean);
+        const parts = parts0.length === 5 ? parts0 : s.split(/\s+/).map((p) => p.trim()).filter(Boolean);
+        if (parts.length !== 5) return null;
+        const nums = parts.map((p) => Number(p.replace(",", ".")));
+        if (nums.some((n) => !Number.isFinite(n))) return null;
+        return nums;
+      };
+
+      const gotNums = parseFive(inputRaw);
+      if (gotNums && expNums && expNums.every((n) => Number.isFinite(n))) {
+        const tol = 1e-6;
+        correct = gotNums.every((g, i) => Math.abs(g - expNums[i]) <= tol);
+        expectedForLog = `${expNums[0]},${expNums[1]},${expNums[2]},${expNums[3]},${expNums[4]}`;
+      } else {
+        expectedForLog = expNums ? `${expNums[0]},${expNums[1]},${expNums[2]},${expNums[3]},${expNums[4]}` : "";
+      }
+    } else {
+      // Default: numeric equality
+      const parsed = Number(inputRaw.replace(",", "."));
+      const expNum = Number(expected);
+      correct = Number.isFinite(parsed) && Number.isFinite(expNum) && parsed === expNum;
+      expectedForLog = String(expected ?? "");
+    }
 
     let next: BattleState = { ...state };
 
@@ -1664,7 +1720,7 @@ export function resolveCardAnswer(opts: { rng: RNG; state: BattleState; input: s
       const m: any = { ...(next.meta ?? {}) };
       m.lastAnswerInput = String(opts.input ?? "");
       m.lastQuestionPrompt = String(awaiting.question?.prompt ?? "");
-      m.lastExpectedAnswer = String(expected ?? "");
+      m.lastExpectedAnswer = expectedForLog;
       next = { ...next, meta: m };
     } catch {}
 
@@ -2679,7 +2735,13 @@ export function stepEnemyTurn(state: BattleState, rng: RNG): BattleState {
         const q = getQuestion({
           rng,
           difficulty: afterDraw.difficulty,
-          packIds: (afterDraw.meta as any)?.questionPackIds ?? undefined,
+          packIds: (meta0 as any)?.debugForceQuestionPackId
+            ? [String((meta0 as any).debugForceQuestionPackId)]
+            : (afterDraw.meta as any)?.questionPackIds ?? undefined,
+          requireTags: Array.isArray((meta0 as any)?.debugForceQuestionRequireTags)
+            ? (meta0 as any).debugForceQuestionRequireTags
+            : undefined,
+          tags: ["context:battle"],
           avoidSigs: hist0,
         });
         const sig = (q as any)?.sig;
@@ -2693,7 +2755,7 @@ export function stepEnemyTurn(state: BattleState, rng: RNG): BattleState {
           meta: meta0,
           awaiting: {
             cardId: "forced_question",
-            question: { prompt: q.prompt, answer: q.answer, hint: q.hint },
+            question: { id: q.id, prompt: q.prompt, answer: q.answer, hint: q.hint, viz: (q as any).viz, kind: (q as any).kind, build: (q as any).build },
           },
         };
       }

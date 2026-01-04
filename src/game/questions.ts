@@ -42,6 +42,19 @@ export type Question = {
   prompt: string;
   // for now: numeric answers only (keeps engine simple)
   answer: number;
+  // Optional: special interaction mode for answering.
+  // (Default/undefined = normal numeric input.)
+  kind?: "boxplot_build";
+  // Extra data needed for special interactive questions.
+  // Currently used for Unit 8.2 build-your-own box plot questions.
+  build?: {
+    kind: "boxplot";
+    data: number[];
+    expected: { min: number; q1: number; median: number; q3: number; max: number };
+    axisMin: number;
+    axisMax: number;
+    tickStep: number;
+  };
   viz?: QuestionViz;
   hint?: string;
   difficulty: Difficulty;
@@ -78,6 +91,8 @@ export type QuestionRequest = {
   // Selected question packs (from Setup screen). If omitted/empty, all packs are eligible.
   packIds?: string[];
   tags?: string[]; // reserved for future fine-grain filtering
+  // If provided, the returned question must include ALL of these tags (best-effort; falls back if none match).
+  requireTags?: string[];
   // Previously-seen question signatures to avoid repeating within a run.
   avoidSigs?: string[];
 };
@@ -116,7 +131,8 @@ function hash32(str: string): number {
 function signatureFor(packId: string, q: Question): string {
   const tags = Array.isArray(q.tags) ? q.tags.slice().sort().join(",") : "";
   const viz = q.viz ? stableStringify(q.viz) : "";
-  const base = `${packId}|${q.difficulty}|${normalizePrompt(q.prompt)}|${Number(q.answer)}|${tags}|${viz}`;
+  const build = (q as any).build ? stableStringify((q as any).build) : "";
+  const base = `${packId}|${q.difficulty}|${normalizePrompt(q.prompt)}|${Number(q.answer)}|${tags}|${viz}|${build}`;
   return `q:${packId}:${hash32(base).toString(36)}`;
 }
 
@@ -613,6 +629,12 @@ function choicePromptGeneric(stem: string, options: string[]): string {
 function getU82Question(req: QuestionRequest): Question {
   const { rng, difficulty } = req;
 
+  // Some question types require specific UI support (ex: interactive box-plot building).
+  // We gate these by context via request tags so they don't appear in places like
+  // simple "question gates" that only support numeric input.
+  const tagSet = new Set((req.tags ?? []).map((t) => String(t ?? "")));
+  const isBattleContext = tagSet.has("context:battle");
+
   const KINDS =
     difficulty === 1
 			? ([
@@ -648,7 +670,13 @@ function getU82Question(req: QuestionRequest): Question {
             "COMPARE_MEDIAN",
           ] as const);
 
-  const kind = pick(rng, (KINDS as readonly string[]).slice() as any);
+  let kind = pick(rng, (KINDS as readonly string[]).slice() as any) as string;
+
+  // Occasionally ask students to BUILD a box plot on-screen (battle only).
+  if (isBattleContext && difficulty >= 2) {
+    const p = difficulty === 2 ? 0.18 : 0.25;
+    if (rng() < p) kind = "BUILD_BOXPLOT";
+  }
 
   // Worksheet-aligned data and boxplots (so students see familiar-looking questions).
   // (Values match your 8.2 materials.)
@@ -821,6 +849,30 @@ function getU82Question(req: QuestionRequest): Question {
     };
   }
 
+  // BUILD_BOXPLOT (interactive)
+  if (kind === "BUILD_BOXPLOT") {
+    const s = fiveNumberSummary(data);
+    const axis = autoAxisForBoxplot(s);
+    return {
+      id: qid("u8_2_build_boxplot", hash32(`${fmtData(data)}|${s.min}|${s.q1}|${s.median}|${s.q3}|${s.max}`)),
+      prompt: `${dataPrompt}\n\nCreate a box plot for this data set.`,
+      // Answer is validated via the interactive build payload.
+      answer: 0,
+      kind: "boxplot_build",
+      build: {
+        kind: "boxplot",
+        data: data.slice(),
+        expected: { ...s },
+        axisMin: axis.axisMin,
+        axisMax: axis.axisMax,
+        tickStep: axis.tickStep,
+      },
+      hint: "Build the five-number summary: min, Q1, median (Q2), Q3, max.",
+      difficulty,
+      tags: ["u8_2", "create_boxplot", "build"],
+    };
+  }
+
   // COMPARE_MEDIAN
   // Use the worksheet handout-style quiz comparison sometimes.
   const CLASS_A = [16, 8, 12, 13, 19, 15, 20, 17, 11, 18, 12];
@@ -877,6 +929,11 @@ export function getQuestion(req: QuestionRequest): Question {
   const pools = (eligible.length ? eligible : [fallbackPackId]).filter((id) => !!PACK_GENERATORS[id]);
 
   const avoid = new Set(Array.isArray(req.avoidSigs) ? req.avoidSigs.map(String) : []);
+  const requireTags = new Set(
+    Array.isArray(req.requireTags)
+      ? req.requireTags.map((t) => String(t ?? "").trim()).filter(Boolean)
+      : []
+  );
 
   let last: Question | null = null;
   let lastPack = fallbackPackId;
@@ -891,7 +948,22 @@ export function getQuestion(req: QuestionRequest): Question {
     const q: Question = { ...q0, sig };
     last = q;
     lastPack = packId;
-    if (!avoid.has(sig)) return q;
+    if (avoid.has(sig)) continue;
+
+    // If required tags were provided, ensure the generated question includes all of them.
+    if (requireTags.size) {
+      const qTags = new Set(Array.isArray((q0 as any)?.tags) ? (q0 as any).tags.map((x: any) => String(x ?? "").trim()) : []);
+      let ok = true;
+      for (const rt of requireTags) {
+        if (!qTags.has(rt)) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok) continue;
+    }
+
+    return q;
   }
 
   // Fall back to the last generated question even if it repeats.

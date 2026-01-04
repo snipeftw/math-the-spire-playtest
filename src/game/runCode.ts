@@ -65,6 +65,8 @@ function makePortableState(state: GameState): any {
   // Never export debug/testing flags.
   raw.debugSkipQuestions = false;
   raw.debugForcedEventId = null;
+  raw.debugForceQuestionPackId = null;
+  raw.debugForceQuestionRequireTags = null;
 
   // Teacher mode is disabled in the student-facing build.
   raw.teacherUnlocked = false;
@@ -96,6 +98,8 @@ function normalizeLoadedState(rawState: any, teacherUnlockedFallback: boolean): 
   // Always clear debug flags on import.
   merged.debugSkipQuestions = false;
   merged.debugForcedEventId = null;
+  merged.debugForceQuestionPackId = null;
+  merged.debugForceQuestionRequireTags = null;
 
   if (merged.screen !== "TITLE" && merged.runStartMs == null) {
     merged.runStartMs = Date.now();

@@ -154,6 +154,10 @@ export type GameState = {
   // If set, the next EVENT node opened will use this event id (then auto-clears)
   debugForcedEventId: string | null;
 
+  // Hidden teacher-only question debug (no UI in student build unless unlocked via key chord)
+  debugForceQuestionPackId: string | null;
+  debugForceQuestionRequireTags: string[] | null;
+
   // Incremented each time the Hallway Shortcut event is entered. Used to reshuffle
   // lockers for repeated debug/testing within the same run.
   hallwayPlays: number;
@@ -331,6 +335,8 @@ export type Action =
   | { type: "DEBUG_SET_FORCED_EVENT"; eventId: string | null }
   | { type: "DEBUG_FORCE_EVENT"; eventId: string }
   | { type: "DEBUG_TOGGLE_SKIP_QUESTIONS" }
+  | { type: "DEBUG_SET_QUESTION_FORCE"; packId: string | null; requireTags?: string[] | null }
+  | { type: "DEBUG_CLEAR_QUESTION_FORCE" }
 
   | { type: "SHOP_BUY"; kind: "card" | "consumable" | "supply"; id: string }
   | { type: "SHOP_REFRESH" }
@@ -620,6 +626,8 @@ export const initialState: GameState = {
   teacherUnlocked: false,
   debugSkipQuestions: false,
   debugForcedEventId: null,
+  debugForceQuestionPackId: null,
+  debugForceQuestionRequireTags: null,
   hallwayPlays: 0,
   eventRollNonce: 0,
   nodeScreen: undefined,
@@ -653,10 +661,16 @@ function pushQuestionHistory(state: GameState, sig: unknown): string[] {
 
 function getQuestionForRun(state: GameState, args: { rng: any; difficulty: 1 | 2 | 3 }): { question: Question; nextHistory: string[] } {
   const history = Array.isArray(state.questionHistorySigs) ? state.questionHistorySigs : [];
+  const forcePackId = (state as any).debugForceQuestionPackId ? String((state as any).debugForceQuestionPackId) : null;
+  const forceTagsRaw = (state as any).debugForceQuestionRequireTags;
+  const forceTags = Array.isArray(forceTagsRaw) ? forceTagsRaw.map((t) => String(t ?? "").trim()).filter(Boolean) : [];
   const q: any = getQuestion({
     rng: args.rng,
     difficulty: args.difficulty,
-    packIds: (state.setup as any)?.questionPackIds ?? undefined,
+    packIds: forcePackId ? [forcePackId] : (state.setup as any)?.questionPackIds ?? undefined,
+    requireTags: forceTags.length ? forceTags : undefined,
+    // Non-battle contexts (events, gates, etc.)
+    tags: ["context:nonbattle"],
     avoidSigs: history,
   });
   const sig = String(q?.sig ?? "").trim();
@@ -844,6 +858,8 @@ export function reducer(state: GameState, action: Action): GameState {
         teacherUnlocked: false,
         debugSkipQuestions: false,
         debugForcedEventId: null,
+        debugForceQuestionPackId: null,
+        debugForceQuestionRequireTags: null,
       } as any;
 
       if (next.screen !== "TITLE" && next.runStartMs == null) {
@@ -890,6 +906,8 @@ export function reducer(state: GameState, action: Action): GameState {
         teacherUnlocked: false,
         debugSkipQuestions: false,
         debugForcedEventId: null,
+        debugForceQuestionPackId: null,
+        debugForceQuestionRequireTags: null,
 
         hallwayPlays: 0,
         eventRollNonce: 0,
@@ -3241,7 +3259,17 @@ The air bites. Take ${taken} damage.`,
         const makeExamQuestion = (rungIndex1: number, avoidSigs?: string[]): Question => {
           const qSeed = (state.seed ^ hashStringToInt(`event:exam_ladder:${nodeId}:r${rungIndex1}`)) >>> 0;
           const rng = makeRng((qSeed ^ 0xE6A7D3) >>> 0);
-          return getQuestion({ rng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined, avoidSigs });
+          const forcePackId = (state as any).debugForceQuestionPackId ? String((state as any).debugForceQuestionPackId) : null;
+          const forceTagsRaw = (state as any).debugForceQuestionRequireTags;
+          const forceTags = Array.isArray(forceTagsRaw) ? forceTagsRaw.map((t) => String(t ?? "").trim()).filter(Boolean) : [];
+          return getQuestion({
+            rng,
+            difficulty,
+            packIds: forcePackId ? [forcePackId] : (state.setup as any)?.questionPackIds ?? undefined,
+            requireTags: forceTags.length ? forceTags : undefined,
+            tags: ["context:nonbattle"],
+            avoidSigs,
+          });
         };
 
         const endWithReward = (correctCount: number, headerText?: string): GameState => {
@@ -3683,7 +3711,17 @@ The air bites. Take ${taken} damage.`,
         const makeExamQuestion = (rungIndex1: number, avoidSigs?: string[]): Question => {
           const qSeed = (state.seed ^ hashStringToInt(`event:exam_ladder:${nodeId}:r${rungIndex1}`)) >>> 0;
           const rng = makeRng((qSeed ^ 0xE6A7D3) >>> 0);
-          return getQuestion({ rng, difficulty, packIds: (state.setup as any)?.questionPackIds ?? undefined, avoidSigs });
+          const forcePackId = (state as any).debugForceQuestionPackId ? String((state as any).debugForceQuestionPackId) : null;
+          const forceTagsRaw = (state as any).debugForceQuestionRequireTags;
+          const forceTags = Array.isArray(forceTagsRaw) ? forceTagsRaw.map((t) => String(t ?? "").trim()).filter(Boolean) : [];
+          return getQuestion({
+            rng,
+            difficulty,
+            packIds: forcePackId ? [forcePackId] : (state.setup as any)?.questionPackIds ?? undefined,
+            requireTags: forceTags.length ? forceTags : undefined,
+            tags: ["context:nonbattle"],
+            avoidSigs,
+          });
         };
 
         const endWithReward = (count: number, headerText: string): GameState => {
@@ -4219,6 +4257,8 @@ Take ${taken} damage.` : ""}`,
             supplyId: legacySupplyId,
             supplyIds,
             questionPackIds: (setup as any)?.questionPackIds ?? undefined,
+            debugForceQuestionPackId: (state as any).debugForceQuestionPackId ?? null,
+            debugForceQuestionRequireTags: (state as any).debugForceQuestionRequireTags ?? null,
             // Prevent repeats across battles/events within the run.
             questionHistorySigs: (state.questionHistorySigs ?? []).slice(),
             isChallenge,
@@ -4314,8 +4354,8 @@ Take ${taken} damage.` : ""}`,
           const depthN = Number(depth0);
           const depth = Number.isFinite(depthN) ? Math.max(1, Math.floor(depthN)) : null;
           const location = depth ? `Floor ${depth} • Battle • ${cardName}` : `Battle • ${cardName}`;
-          const prompt = String(prevAwaiting.question?.prompt ?? "");
-          const expected = String(prevAwaiting.question?.answer ?? "");
+          const prompt = String(((battle as any)?.meta as any)?.lastQuestionPrompt ?? prevAwaiting.question?.prompt ?? "");
+          const expected = String(((battle as any)?.meta as any)?.lastExpectedAnswer ?? prevAwaiting.question?.answer ?? "");
           const given = String(((battle as any)?.meta as any)?.lastAnswerInput ?? "");
           const entry = {
             id: `wa:${Date.now()}:${Math.random().toString(16).slice(2)}`
@@ -4773,6 +4813,20 @@ Take ${taken} damage.` : ""}`,
       return { ...state, debugSkipQuestions: !state.debugSkipQuestions };
     }
 
+    case "DEBUG_SET_QUESTION_FORCE": {
+      const packId = action.packId == null ? null : String(action.packId);
+      const reqTagsRaw = (action as any).requireTags;
+      const requireTags = Array.isArray(reqTagsRaw) ? reqTagsRaw.map((t) => String(t ?? "").trim()).filter(Boolean) : null;
+      return {
+        ...state,
+        debugForceQuestionPackId: packId,
+        debugForceQuestionRequireTags: requireTags && requireTags.length ? requireTags : null,
+      };
+    }
+    case "DEBUG_CLEAR_QUESTION_FORCE": {
+      return { ...state, debugForceQuestionPackId: null, debugForceQuestionRequireTags: null };
+    }
+
     case "DEBUG_FORCE_BATTLE": {
       if (state.screen !== "OVERWORLD") return state;
       if (!state.setup) return state;
@@ -4833,6 +4887,9 @@ Take ${taken} damage.` : ""}`,
             supplyId: legacySupplyId,
             supplyIds,
             questionPackIds: (state.setup as any)?.questionPackIds ?? undefined,
+            debugForceQuestionPackId: (state as any).debugForceQuestionPackId ?? null,
+            debugForceQuestionRequireTags: (state as any).debugForceQuestionRequireTags ?? null,
+            questionHistorySigs: (state.questionHistorySigs ?? []).slice(),
             isChallenge,
             runGold: state.gold ?? 0,
           },
