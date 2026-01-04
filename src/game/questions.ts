@@ -745,6 +745,31 @@ function choicePromptGeneric(stem: string, options: string[]): string {
   return `${stem}\n\n${lines.join("\n")}`;
 }
 
+function shuffleOptionsWithAnswer(rng: RNG, options: string[], correctIndex1: number) {
+  const arr = options.map((text, idx) => ({ text, correct: idx + 1 === correctIndex1 }));
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = randInt(rng, 0, i);
+    const tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+  }
+  const newOptions = arr.map((x) => x.text);
+  const newCorrect = Math.max(0, arr.findIndex((x) => x.correct)) + 1;
+  return { options: newOptions, answer: newCorrect };
+}
+
+/**
+ * Like shuffle, but keeps the relative ordering of the options (cyclic rotation).
+ * Useful when you want to preserve a logical grouping/order while avoiding "always A".
+ */
+function rotateOptionsWithAnswer(rng: RNG, options: string[], correctIndex1: number) {
+  if (options.length <= 1) return { options, answer: correctIndex1 };
+  const k = randInt(rng, 0, options.length - 1);
+  const rotated = [...options.slice(k), ...options.slice(0, k)];
+  const newAnswer = ((((correctIndex1 - 1) - k) % options.length) + options.length) % options.length + 1;
+  return { options: rotated, answer: newAnswer };
+}
+
 function getU82Question(req: QuestionRequest): Question {
   const { rng, difficulty } = req;
 
@@ -1042,14 +1067,16 @@ function getU82Question(req: QuestionRequest): Question {
     ],
   };
   const ans = aSum.median === bSum.median ? 3 : aSum.median > bSum.median ? 1 : 2;
+  const opts = ["Class A", "Class B", "Same median", "Can't tell"];
+  const shuffled = shuffleOptionsWithAnswer(rng, opts, ans);
   return {
-    id: qid("u8_2_compare_median", ans),
+    id: qid("u8_2_compare_median", randInt(rng, 1000, 9999)),
     prompt: choicePromptGeneric(
       "Two groups wrote the same quiz. Use the box plots to decide: Which group has the higher median?",
-      ["Class A", "Class B", "Same median", "Can't tell"],
+      shuffled.options,
     ),
     viz: viz2,
-    answer: ans,
+    answer: shuffled.answer as 1 | 2 | 3 | 4,
     hint: "Compare the median lines (the vertical line inside each box).",
     difficulty,
     tags: ["u8_2", "boxplot", "compare", "median"],
@@ -1099,11 +1126,12 @@ function getU83Question(req: QuestionRequest): Question {
     tags: string[],
     viz?: QuestionViz
   ): Question => {
+    const shuffled = shuffleOptionsWithAnswer(rng, [...options], correct);
     return {
-      id: qid("u8_3", correct),
-      prompt: choicePromptGeneric(stem, options),
+      id: qid("u8_3", randInt(rng, 1000, 9999)),
+      prompt: choicePromptGeneric(stem, shuffled.options),
       viz,
-      answer: correct,
+      answer: shuffled.answer as 1 | 2 | 3 | 4,
       hint,
       difficulty,
       tags: ["u8_3", ...tags],
@@ -1497,10 +1525,11 @@ function getU84Question(req: QuestionRequest): Question {
     const axis = autoAxisForScatter(points);
     const options = ["Positive correlation", "Negative correlation", "No correlation"]; // 1..3
     const answer = which === "pos" ? 1 : which === "neg" ? 2 : 3;
+    const shuffled = shuffleOptionsWithAnswer(rng, options, answer);
     return {
       id: qid("u84", randInt(rng, 1000, 9999)),
-      prompt: choicePromptGeneric("Look at the scatter plot. What type of correlation does it show?", options),
-      answer,
+      prompt: choicePromptGeneric("Look at the scatter plot. What type of correlation does it show?", shuffled.options),
+      answer: shuffled.answer as 1 | 2 | 3,
       difficulty,
       tags: ["u8_4", "scatter", "read", "correlation"],
       viz: {
@@ -1565,11 +1594,12 @@ function getU84Question(req: QuestionRequest): Question {
       "Extrapolation (outside the data range)",
     ];
     const answer = useOut ? 2 : 1;
+    const shuffled = shuffleOptionsWithAnswer(rng, options, answer);
 
     return {
       id: qid("u84", randInt(rng, 1000, 9999)),
-      prompt: choicePromptGeneric(`Using the line of best fit, estimating the value at x = ${x} is…`, options),
-      answer,
+      prompt: choicePromptGeneric(`Using the line of best fit, estimating the value at x = ${x} is…`, shuffled.options),
+      answer: shuffled.answer as 1 | 2,
       difficulty,
       tags: ["u8_4", "scatter", "read", "interp_extrap", useOut ? "extrap" : "interp"],
       viz: {
@@ -1772,11 +1802,12 @@ function getU85Question(req: QuestionRequest): Question {
     const axis = autoAxisForScatter(points);
     const options = ["Approximately linear", "Non-linear", "No correlation"];
     const answer = which === "linear" ? 1 : which === "nonlinear" ? 2 : 3;
+    const shuffled = shuffleOptionsWithAnswer(rng, options, answer);
 
     return {
       id: qid("u85", randInt(rng, 1000, 9999)),
-      prompt: choicePromptGeneric("Is this scatter plot approximately linear, non-linear, or no correlation?", options),
-      answer,
+      prompt: choicePromptGeneric("Is this scatter plot approximately linear, non-linear, or no correlation?", shuffled.options),
+      answer: shuffled.answer as 1 | 2 | 3,
       difficulty,
       tags: ["u8_5", "scatter", "linearity", which],
       viz: {
@@ -1812,10 +1843,12 @@ function getU85Question(req: QuestionRequest): Question {
         ? (strength === "strong" ? 1 : strength === "moderate" ? 2 : 3)
         : (strength === "strong" ? 4 : strength === "moderate" ? 5 : 6);
 
+    const rotated = rotateOptionsWithAnswer(rng, options, answer);
+
     return {
       id: qid("u85", randInt(rng, 1000, 9999)),
-      prompt: choicePromptGeneric("Which description best matches the relationship?", options),
-      answer,
+      prompt: choicePromptGeneric("Which description best matches the relationship?", rotated.options),
+      answer: rotated.answer as 1 | 2 | 3 | 4 | 5 | 6,
       difficulty,
       tags: ["u8_5", "scatter", "strength", dir, strength],
       viz: {
@@ -2105,7 +2138,7 @@ function getU87Question(req: QuestionRequest): Question {
   const baseTags = ["unit:8.7", "u8_7"];
 
   if (kind === "INTERPRET") {
-    // Simple meaning-of-slope / meaning-of-intercept questions.
+    // Meaning-of-slope / meaning-of-intercept questions (multiple choice; shuffled to avoid "always A").
     const slope = roundToStep((rng() < 0.5 ? -1 : 1) * (0.8 + rng() * 4.2), 0.1);
     const intercept = roundToStep(-5 + rng() * 30, 0.1);
 
@@ -2113,20 +2146,39 @@ function getU87Question(req: QuestionRequest): Question {
     const eq = formatEq(slope, intercept);
 
     const askSlope = rng() < 0.6;
-    const prompt = askSlope
-      ? `A regression model for ${scenario} is:\n\n${eq}\n\nWhat does the slope (${slope.toFixed(1)}) represent? Enter the number.\n1) For each 1 unit increase in x, y changes by ${slope.toFixed(1)} on average\n2) For each 1 unit increase in y, x changes by ${slope.toFixed(1)} on average\n3) The starting value of x is ${slope.toFixed(1)}\n4) The maximum possible value of y is ${slope.toFixed(1)}`
-      : `A regression model for ${scenario} is:\n\n${eq}\n\nWhat does the y-intercept (${intercept.toFixed(1)}) represent? Enter the number.\n1) The predicted y-value when x = 0\n2) The predicted x-value when y = 0\n3) The average change in y for each +1 in x\n4) The strongest possible correlation`;
+    const stem = `A regression model for ${scenario} is:\n\n${eq}\n\n${
+      askSlope
+        ? `What does the slope (${slope.toFixed(1)}) represent?`
+        : `What does the intercept (${intercept.toFixed(1)}) represent?`
+    }`;
+
+    const opts = askSlope
+      ? [
+          `For each +1 in x, y changes by ${slope.toFixed(1)} on average`,
+          `For each +1 in y, x changes by ${slope.toFixed(1)} on average`,
+          `When x = 0, the predicted value of y is ${slope.toFixed(1)}`,
+          `The maximum possible value of y is ${slope.toFixed(1)}`,
+        ]
+      : [
+          `When x = 0, the predicted value of y is ${intercept.toFixed(1)}`,
+          `When y = 0, the predicted value of x is ${intercept.toFixed(1)}`,
+          `The slope is ${intercept.toFixed(1)}`,
+          `The strongest possible correlation`,
+        ];
+
+    const shuffled = shuffleOptionsWithAnswer(rng, opts, 1);
 
     return {
-      id: "u8_7_interpret",
-      prompt,
-      answer: 1,
+      id: qid("u8_7_interpret", randInt(rng, 1000, 9999)),
+      prompt: choicePromptGeneric(stem, shuffled.options),
+      answer: shuffled.answer as 1 | 2 | 3 | 4,
       difficulty,
       tags: [...baseTags, "interpret", askSlope ? "slope" : "intercept"],
+      hint: askSlope ? "Slope = average change in y for each +1 in x." : "Intercept = predicted y when x = 0.",
     };
   }
 
-  // Dataset-backed questions below
+// Dataset-backed questions below
   const ds = makeDataset();
   const { m, b } = ds.line;
 
