@@ -1537,6 +1537,19 @@ return (ev?.choices ?? []).map((c) => ({
             const lockers: any[] = (node as any).hallwayLockers ?? [];
             const pending: any = (node as any).hallwayPending ?? null;
             const quiz: any = (node as any).hallwayQuiz ?? null;
+            const quizQ: any = quiz?.question as any;
+            const quizTags = Array.isArray(quizQ?.tags) ? quizQ.tags.map((t: any) => String(t ?? "")) : [];
+            const quizIsLetterAnswer = quizTags.includes("answer:letter");
+            const parseQuizAnswer = (raw: string): number => {
+              const s = String(raw ?? "").trim();
+              if (!s) return NaN;
+              if (quizIsLetterAnswer) {
+                const c = s.toUpperCase().charCodeAt(0);
+                if (c >= 65 && c <= 90) return c - 64;
+              }
+              const n0 = Number(s);
+              return Number.isFinite(n0) ? n0 : NaN;
+            };
             const tally: any = (node as any).hallwayTally ?? { goldGained: 0, goldLost: 0, healed: 0, damageTaken: 0, supplyIds: [] };
             const lastText = String((node as any).hallwayLastText ?? "");
             const allOpened = lockers.length > 0 && lockers.every((l) => !!l?.opened);
@@ -1948,7 +1961,7 @@ return (ev?.choices ?? []).map((c) => ({
                                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                   <input
                                     value={hallwayAnswer}
-                                    inputMode="numeric"
+                                    inputMode={quizIsLetterAnswer ? "text" : "numeric"}
                                     className="input"
                                     style={{ width: 160 }}
                                     placeholder="Answer"
@@ -1956,8 +1969,7 @@ return (ev?.choices ?? []).map((c) => ({
                                     onKeyDown={(e) => {
                                       if (e.key === "Enter") {
                                         const raw = String(hallwayAnswer ?? '').trim();
-                                      const n0 = Number(raw);
-                                      const n = Number.isFinite(n0) ? n0 : NaN;
+                                      const n = parseQuizAnswer(raw);
                                         try {
                                           const expected = Number(quiz?.question?.answer);
                                           const ok = Number.isFinite(expected) && n === expected;
@@ -1974,8 +1986,7 @@ return (ev?.choices ?? []).map((c) => ({
                                     onMouseEnter={() => { try { sfx.cardHover(); } catch {} }}
                                     onClick={() => {
                                       const raw = String(hallwayAnswer ?? '').trim();
-                                        const n0 = Number(raw);
-                                        const n = Number.isFinite(n0) ? n0 : NaN;
+                                      const n = parseQuizAnswer(raw);
                                       try {
                                         const expected = Number(quiz?.question?.answer);
                                         const ok = Number.isFinite(expected) && n === expected;
@@ -2402,7 +2413,19 @@ return (ev?.choices ?? []).map((c) => ({
           {node.step === "QUESTION_GATE" && (() => {
             const gate: any = (node as any).gate ?? null;
             const q = gate?.question;
-            const parsed = gateAnswer.trim() === "" ? null : Number(gateAnswer);
+            const tags = Array.isArray((q as any)?.tags) ? (q as any).tags.map((t: any) => String(t ?? "")) : [];
+            const isLetterAnswer = tags.includes("answer:letter");
+            const parseAnswer = (raw: string): number => {
+              const s = String(raw ?? "").trim();
+              if (!s) return NaN;
+              if (isLetterAnswer) {
+                const c = s.toUpperCase().charCodeAt(0);
+                if (c >= 65 && c <= 90) return c - 64; // A->1
+              }
+              const n0 = Number(s);
+              return Number.isFinite(n0) ? n0 : NaN;
+            };
+            const parsed = gateAnswer.trim() === "" ? null : parseAnswer(gateAnswer);
             const canSubmit = parsed !== null && Number.isFinite(parsed);
 
             if (!gate || !q) {
@@ -2431,12 +2454,18 @@ return (ev?.choices ?? []).map((c) => ({
 
                 <div className="panel soft" style={{ marginTop: 12 }}>
                   <div className="muted" style={{ fontSize: 12 }}>Question</div>
+                  {q?.viz ? (
+                    <div style={{ marginTop: 10 }}>
+                      <QuestionVizView viz={q.viz as any} />
+                    </div>
+                  ) : null}
                   <div style={{ fontWeight: 900, marginTop: 4 }}>{String(q.prompt ?? "")}</div>
 
                   <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
                     <input
                       className="input"
-                      type="number"
+                      type="text"
+                      inputMode={isLetterAnswer ? "text" : "numeric"}
                       placeholder="Answer"
                       value={gateAnswer}
                       onChange={(e) => setGateAnswer(e.target.value)}
@@ -2456,7 +2485,7 @@ return (ev?.choices ?? []).map((c) => ({
                         try {
                           sfx.click();
                         } catch {}
-                        props.onGateAnswer(Number(gateAnswer));
+                        props.onGateAnswer(Number(parsed));
                         setGateAnswer("");
                       }}
                     >
