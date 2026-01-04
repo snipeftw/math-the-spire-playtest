@@ -663,7 +663,7 @@ function getQuestionForRun(state: GameState, args: { rng: any; difficulty: 1 | 2
   const history = Array.isArray(state.questionHistorySigs) ? state.questionHistorySigs : [];
   const forcePackId = (state as any).debugForceQuestionPackId ? String((state as any).debugForceQuestionPackId) : null;
   const forceTagsRaw = (state as any).debugForceQuestionRequireTags;
-  const forceTags = Array.isArray(forceTagsRaw) ? forceTagsRaw.map((t) => String(t ?? "").trim()).filter(Boolean) : [];
+  const forceTags = Array.isArray(forceTagsRaw) ? forceTagsRaw.map((t) => String(t ?? "").trim().toLowerCase()).filter(Boolean) : [];
   const q: any = getQuestion({
     rng: args.rng,
     difficulty: args.difficulty,
@@ -3261,7 +3261,7 @@ The air bites. Take ${taken} damage.`,
           const rng = makeRng((qSeed ^ 0xE6A7D3) >>> 0);
           const forcePackId = (state as any).debugForceQuestionPackId ? String((state as any).debugForceQuestionPackId) : null;
           const forceTagsRaw = (state as any).debugForceQuestionRequireTags;
-          const forceTags = Array.isArray(forceTagsRaw) ? forceTagsRaw.map((t) => String(t ?? "").trim()).filter(Boolean) : [];
+          const forceTags = Array.isArray(forceTagsRaw) ? forceTagsRaw.map((t) => String(t ?? "").trim().toLowerCase()).filter(Boolean) : [];
           return getQuestion({
             rng,
             difficulty,
@@ -3713,7 +3713,7 @@ The air bites. Take ${taken} damage.`,
           const rng = makeRng((qSeed ^ 0xE6A7D3) >>> 0);
           const forcePackId = (state as any).debugForceQuestionPackId ? String((state as any).debugForceQuestionPackId) : null;
           const forceTagsRaw = (state as any).debugForceQuestionRequireTags;
-          const forceTags = Array.isArray(forceTagsRaw) ? forceTagsRaw.map((t) => String(t ?? "").trim()).filter(Boolean) : [];
+          const forceTags = Array.isArray(forceTagsRaw) ? forceTagsRaw.map((t) => String(t ?? "").trim().toLowerCase()).filter(Boolean) : [];
           return getQuestion({
             rng,
             difficulty,
@@ -4816,15 +4816,42 @@ Take ${taken} damage.` : ""}`,
     case "DEBUG_SET_QUESTION_FORCE": {
       const packId = action.packId == null ? null : String(action.packId);
       const reqTagsRaw = (action as any).requireTags;
-      const requireTags = Array.isArray(reqTagsRaw) ? reqTagsRaw.map((t) => String(t ?? "").trim()).filter(Boolean) : null;
+      const requireTags = Array.isArray(reqTagsRaw)
+        ? reqTagsRaw.map((t) => String(t ?? "").trim().toLowerCase()).filter(Boolean)
+        : null;
+
+      // Apply immediately to an active battle, so you can force question types mid-fight.
+      const battle = state.battle
+        ? ({
+            ...state.battle,
+            meta: {
+              ...(((state.battle as any).meta ?? {}) as any),
+              debugForceQuestionPackId: packId,
+              debugForceQuestionRequireTags: requireTags && requireTags.length ? requireTags : null,
+            },
+          } as any)
+        : state.battle;
+
       return {
         ...state,
+        battle,
         debugForceQuestionPackId: packId,
         debugForceQuestionRequireTags: requireTags && requireTags.length ? requireTags : null,
       };
     }
     case "DEBUG_CLEAR_QUESTION_FORCE": {
-      return { ...state, debugForceQuestionPackId: null, debugForceQuestionRequireTags: null };
+      const battle = state.battle
+        ? ({
+            ...state.battle,
+            meta: {
+              ...(((state.battle as any).meta ?? {}) as any),
+              debugForceQuestionPackId: null,
+              debugForceQuestionRequireTags: null,
+            },
+          } as any)
+        : state.battle;
+
+      return { ...state, battle, debugForceQuestionPackId: null, debugForceQuestionRequireTags: null };
     }
 
     case "DEBUG_FORCE_BATTLE": {

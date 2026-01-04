@@ -635,6 +635,20 @@ function getU82Question(req: QuestionRequest): Question {
   const tagSet = new Set((req.tags ?? []).map((t) => String(t ?? "")));
   const isBattleContext = tagSet.has("context:battle");
 
+  // If a debug "requireTags" filter is active, help the generator pick a matching kind.
+  const requireTagSet = new Set(
+    (req.requireTags ?? [])
+      .map((t) => String(t ?? "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const forceBuildBoxplot =
+    isBattleContext &&
+    (requireTagSet.has("build") ||
+      requireTagSet.has("build_boxplot") ||
+      requireTagSet.has("boxplot_build") ||
+      requireTagSet.has("buildboxplot") ||
+      requireTagSet.has("build-boxplot"));
+
   const KINDS =
     difficulty === 1
 			? ([
@@ -671,6 +685,9 @@ function getU82Question(req: QuestionRequest): Question {
           ] as const);
 
   let kind = pick(rng, (KINDS as readonly string[]).slice() as any) as string;
+
+  // Force the interactive builder when explicitly requested (battle-only).
+  if (forceBuildBoxplot) kind = "BUILD_BOXPLOT";
 
   // Occasionally ask students to BUILD a box plot on-screen (battle only).
   if (isBattleContext && difficulty >= 2) {
@@ -931,7 +948,7 @@ export function getQuestion(req: QuestionRequest): Question {
   const avoid = new Set(Array.isArray(req.avoidSigs) ? req.avoidSigs.map(String) : []);
   const requireTags = new Set(
     Array.isArray(req.requireTags)
-      ? req.requireTags.map((t) => String(t ?? "").trim()).filter(Boolean)
+      ? req.requireTags.map((t) => String(t ?? "").trim().toLowerCase()).filter(Boolean)
       : []
   );
 
@@ -952,7 +969,7 @@ export function getQuestion(req: QuestionRequest): Question {
 
     // If required tags were provided, ensure the generated question includes all of them.
     if (requireTags.size) {
-      const qTags = new Set(Array.isArray((q0 as any)?.tags) ? (q0 as any).tags.map((x: any) => String(x ?? "").trim()) : []);
+      const qTags = new Set(Array.isArray((q0 as any)?.tags) ? (q0 as any).tags.map((x: any) => String(x ?? "").trim().toLowerCase()) : []);
       let ok = true;
       for (const rt of requireTags) {
         if (!qTags.has(rt)) {
