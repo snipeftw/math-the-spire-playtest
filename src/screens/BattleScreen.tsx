@@ -427,8 +427,10 @@ export default function BattleScreen(props: {
       const axis = m.axis as any;
       const yMin = Number(axis.yMin ?? 0);
       const yMax = Number(axis.yMax ?? 10);
-      const yMid = (yMin + yMax) / 2;
-      setScatterPredict({ y: yMid });
+      // Start predict-dot at y=0 (clamped to axis), as requested.
+      const y0 = 0;
+      const startY = y0 < yMin ? yMin : y0 > yMax ? yMax : y0;
+      setScatterPredict({ y: startY });
       setScatterLineFit(null);
       return;
     }
@@ -2496,7 +2498,8 @@ function onDropPlayZone(e: React.DragEvent) {
           const axis: any = m.axis ?? {};
           const yMin = Number(axis.yMin ?? 0);
           const yMax = Number(axis.yMax ?? 10);
-          setScatterPredict({ y: (yMin + yMax) / 2 });
+          const y0 = 0;
+          setScatterPredict({ y: y0 < yMin ? yMin : y0 > yMax ? yMax : y0 });
         }
       }}
       disabled={!awaiting}
@@ -2517,7 +2520,7 @@ function onDropPlayZone(e: React.DragEvent) {
                       ref={answerInputRef}
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
-                      placeholder={awaiting ? "Type your answer (number)" : "Play a card first"}
+                      placeholder={awaiting ? (Array.isArray((awaiting as any)?.question?.tags) && ((awaiting as any).question.tags as any[]).map((t:any)=>String(t??" ").trim().toLowerCase()).includes("answer:letter") ? "Type the letter (A, B, C...)" : "Type your answer (number)") : "Play a card first"}
                       className="input"
                       disabled={!awaiting}
                       onKeyDown={(e) => {

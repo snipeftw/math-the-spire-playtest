@@ -1762,11 +1762,31 @@ export function resolveCardAnswer(opts: { rng: RNG; state: BattleState; input: s
   correct = Number.isFinite(parsed) && Number.isFinite(expY) && Math.abs(parsed - expY) <= tol;
 
 } else {
-      // Default: numeric equality
-      const parsed = Number(inputRaw.replace(",", "."));
+      // Default: numeric equality (with optional letter support for certain questions)
+      const tags = new Set(
+        Array.isArray((awaiting.question as any)?.tags)
+          ? ((awaiting.question as any).tags as any[]).map((t) => String(t ?? "").trim().toLowerCase())
+          : []
+      );
+      const wantsLetter = tags.has("answer:letter");
+
+      const parseNumOrLetter = (s: string): number => {
+        const ss = String(s ?? "").trim();
+        if (!ss) return NaN;
+        // Single letter like "C" -> 3
+        if (/^[a-z]$/i.test(ss)) {
+          const c = ss.toUpperCase().charCodeAt(0);
+          return c >= 65 && c <= 90 ? c - 64 : NaN;
+        }
+        return Number(ss.replace(",", "."));
+      };
+
+      const parsed = wantsLetter ? parseNumOrLetter(inputRaw) : Number(inputRaw.replace(",", "."));
       const expNum = Number(expected);
       correct = Number.isFinite(parsed) && Number.isFinite(expNum) && parsed === expNum;
-      expectedForLog = String(expected ?? "");
+      expectedForLog = wantsLetter && Number.isFinite(expNum) && expNum >= 1 && expNum <= 26
+        ? String.fromCharCode(64 + Math.round(expNum))
+        : String(expected ?? "");
     }
 
     let next: BattleState = { ...state };

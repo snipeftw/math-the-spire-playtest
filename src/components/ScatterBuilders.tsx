@@ -417,7 +417,7 @@ export function ScatterPredictBuilder({
           cx={xGuideSvg}
           cy={yValSvg}
           r={9}
-          fill="rgba(255,255,255,0.92)"
+          fill="rgba(59,130,246,0.92)"
           stroke="rgba(0,0,0,0.35)"
           strokeWidth={2}
           onPointerDown={(e) => {

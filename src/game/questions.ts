@@ -1285,6 +1285,60 @@ function autoAxisForScatter(points: { x: number; y: number }[]): ScatterAxis {
   return { xMin, xMax, yMin, yMax, xTickStep, yTickStep };
 }
 
+function recomputeScatterTicks(axis: ScatterAxis): ScatterAxis {
+  let { xMin, xMax, yMin, yMax } = axis;
+  if (xMin === xMax) {
+    xMin -= 1;
+    xMax += 1;
+  }
+  if (yMin === yMax) {
+    yMin -= 1;
+    yMax += 1;
+  }
+  const spanX = Math.max(1, xMax - xMin);
+  const spanY = Math.max(1, yMax - yMin);
+  const xTickStep = spanX <= 12 ? 1 : spanX <= 24 ? 2 : 5;
+  const yTickStep = spanY <= 12 ? 1 : spanY <= 24 ? 2 : 5;
+  xMin = Math.floor(xMin / xTickStep) * xTickStep;
+  xMax = Math.ceil(xMax / xTickStep) * xTickStep;
+  yMin = Math.floor(yMin / yTickStep) * yTickStep;
+  yMax = Math.ceil(yMax / yTickStep) * yTickStep;
+  return { ...axis, xMin, xMax, yMin, yMax, xTickStep, yTickStep };
+}
+
+function expandScatterAxis(axis: ScatterAxis, opts: { includeX?: number; includeY?: number; includeY0?: boolean }): ScatterAxis {
+  let { xMin, xMax, yMin, yMax } = axis;
+  if (Number.isFinite(opts.includeX as any)) {
+    const x = Number(opts.includeX);
+    xMin = Math.min(xMin, x);
+    xMax = Math.max(xMax, x);
+  }
+  if (Number.isFinite(opts.includeY as any)) {
+    const y = Number(opts.includeY);
+    yMin = Math.min(yMin, y);
+    yMax = Math.max(yMax, y);
+  }
+  if (opts.includeY0) {
+    yMin = Math.min(yMin, 0);
+    yMax = Math.max(yMax, 0);
+  }
+  return recomputeScatterTicks({ ...axis, xMin, xMax, yMin, yMax });
+}
+
+function letterToNumber(letter: string): number {
+  const c = String(letter ?? "").trim().toUpperCase();
+  if (!c) return NaN;
+  const code = c.charCodeAt(0);
+  if (code < 65 || code > 90) return NaN;
+  return code - 64;
+}
+
+function numberToLetter(n: number): string {
+  const nn = Math.round(Number(n));
+  if (!Number.isFinite(nn) || nn < 1 || nn > 26) return "";
+  return String.fromCharCode(64 + nn);
+}
+
 function makeScatterPointsFromLine(opts: {
   rng: RNG;
   m: number;
@@ -1300,6 +1354,26 @@ function makeScatterPointsFromLine(opts: {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   for (let i = 0; i < n; i++) {
     const x = xStart + Math.round((i * (xEnd - xStart)) / Math.max(1, n - 1));
+    const eps = randInt(rng, -noise, noise);
+    const y = Math.round(m * x + b + eps);
+    out.push({ x, y, label: labelPoints ? letters[i] : undefined });
+  }
+  return out;
+}
+
+function makeScatterPointsOnXs(opts: {
+  rng: RNG;
+  m: number;
+  b: number;
+  xs: number[];
+  noise: number;
+  labelPoints?: boolean;
+}): ScatterPoint[] {
+  const { rng, m, b, xs, noise, labelPoints } = opts;
+  const out: ScatterPoint[] = [];
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  for (let i = 0; i < xs.length; i++) {
+    const x = xs[i];
     const eps = randInt(rng, -noise, noise);
     const y = Math.round(m * x + b + eps);
     out.push({ x, y, label: labelPoints ? letters[i] : undefined });
@@ -1330,7 +1404,7 @@ function getU84Question(req: QuestionRequest): Question {
 
   const forceLineFit = isBattleContext && (requireTagSet.has("linefit") || requireTagSet.has("line_fit") || requireTagSet.has("scatter_linefit"));
   const forcePredict = isBattleContext && (requireTagSet.has("predict") || requireTagSet.has("scatter_predict"));
-  const forceRead = requireTagSet.has("read") || requireTagSet.has("correlation") || requireTagSet.has("outlier") || requireTagSet.has("interp") || requireTagSet.has("extrap");
+  const forceRead = requireTagSet.has("read") || requireTagSet.has("correlation") || requireTagSet.has("outlier") || requireTagSet.has("interp") || requireTagSet.has("extrap") || requireTagSet.has("interp_extrap");
 
   const KINDS =
     difficulty === 1
@@ -1388,30 +1462,17 @@ function getU84Question(req: QuestionRequest): Question {
     const base = mkPositive(true);
     // pick a label to become the outlier
     const outIdx = randInt(rng, 2, Math.min(6, base.length - 2));
-    const outLabel = base[outIdx].label ?? "C";
+    const outLabel = String(base[outIdx].label ?? "C").toUpperCase();
     const points = base.map((p, i) => (i === outIdx ? { ...p, y: p.y + randInt(rng, 6, 9) } : p));
     const axis = autoAxisForScatter(points);
-    // Offer 4 choices: correct label + 3 other labels
-    const labels = points.map((p) => p.label).filter(Boolean) as string[];
-    const pool = labels.filter((l) => l !== outLabel);
-    const distractors: string[] = [];
-    while (distractors.length < 3 && pool.length) {
-      const d = pick(rng, pool as any) as string;
-      if (!distractors.includes(d)) distractors.push(d);
-    }
-    const opts = [outLabel, ...distractors].slice(0, 4);
-    // shuffle options
-    for (let i = opts.length - 1; i > 0; i--) {
-      const j = randInt(rng, 0, i);
-      [opts[i], opts[j]] = [opts[j], opts[i]];
-    }
-    const answer = opts.indexOf(outLabel) + 1;
+    const answer = letterToNumber(outLabel);
+
     return {
       id: qid("u84", randInt(rng, 1000, 9999)),
-      prompt: choicePromptGeneric("One point doesn’t match the overall pattern. Which labelled point is an outlier?", opts.map((o) => `Point ${o}`)),
-      answer,
+      prompt: `One point doesn’t match the overall pattern. Type the LETTER of the outlier (A, B, C...).`,
+      answer: Number.isFinite(answer) ? answer : 1,
       difficulty,
-      tags: ["u8_4", "scatter", "read", "outlier"],
+      tags: ["u8_4", "scatter", "read", "outlier", "answer:letter"],
       viz: {
         kind: "scatter",
         title: "Scatter plot (labelled points)",
@@ -1426,24 +1487,34 @@ function getU84Question(req: QuestionRequest): Question {
 
   if (kind === "INTERP_EXTRAP") {
     const points = mkNegative(false);
-    const axis = autoAxisForScatter(points);
-    const { m, b } = linReg(points);
-    const line = { m, b };
-    const xIn = randInt(rng, 2, 7);
-    const xOut = randInt(rng, 9, 12);
+    const fit = linReg(points);
+    const line = { m: fit.m, b: fit.b };
+
+    const xs = points.map((p) => p.x);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+
+    const xIn = randInt(rng, Math.min(minX + 1, maxX - 1), Math.max(minX + 1, maxX - 1));
+    const xOut = maxX + randInt(rng, 2, 5);
     const useOut = rng() < 0.5;
     const x = useOut ? xOut : xIn;
-    const options = ["Interpolation (inside the data range)", "Extrapolation (outside the data range)"];
+
+    let axis = autoAxisForScatter(points);
+    // Ensure the guide line is actually visible even when x is outside the original data range.
+    axis = expandScatterAxis(axis, { includeX: x });
+
+    const options = [
+      "Interpolation (inside the data range)",
+      "Extrapolation (outside the data range)",
+    ];
     const answer = useOut ? 2 : 1;
+
     return {
       id: qid("u84", randInt(rng, 1000, 9999)),
-      prompt: choicePromptGeneric(
-        `Using the line of best fit, estimating the value at x = ${x} is…`,
-        options
-      ),
+      prompt: choicePromptGeneric(`Using the line of best fit, estimating the value at x = ${x} is…`, options),
       answer,
       difficulty,
-      tags: ["u8_4", "scatter", "read", useOut ? "extrap" : "interp"],
+      tags: ["u8_4", "scatter", "read", "interp_extrap", useOut ? "extrap" : "interp"],
       viz: {
         kind: "scatter",
         title: "Scatter plot + line of best fit",
@@ -1460,11 +1531,33 @@ function getU84Question(req: QuestionRequest): Question {
 
   // Interactive PREDICT: drag a point on a vertical guide line (battle-only preferred).
   if (kind === "PREDICT") {
-    const points = mkPositive(false);
-    const axis = autoAxisForScatter(points);
+    // Vary the underlying trend so it doesn't always feel the same.
+    const scenarios = [
+      { m: 2, b: 1 },
+      { m: 1, b: 3 },
+      { m: -1, b: 16 },
+      { m: -2, b: 22 },
+    ];
+    const sc = pick(rng, scenarios as any) as { m: number; b: number };
+
+    const targetX = randInt(rng, 2, 8);
+    // Generate points on integer x-values, but ensure there is NO data point at targetX.
+    const xs: number[] = [];
+    for (let x = 1; x <= 9; x++) {
+      if (x !== targetX) xs.push(x);
+    }
+
+    const noise = difficulty >= 3 ? 2 : 1;
+    const points = makeScatterPointsOnXs({ rng, m: sc.m, b: sc.b, xs, noise });
+
+    // Use a regression line so the displayed line matches the data.
     const fit = linReg(points);
-    const targetX = randInt(rng, 2, 7);
     const expectedY = fit.m * targetX + fit.b;
+
+    // Ensure axis includes targetX (for the vertical guide) and y=0 (so the draggable starts at 0).
+    let axis = autoAxisForScatter(points.concat([{ x: targetX, y: expectedY }]));
+    axis = expandScatterAxis(axis, { includeX: targetX, includeY0: true });
+
     const tol = 1; // user-set tolerance
     return {
       id: qid("u84", randInt(rng, 1000, 9999)),
@@ -1487,26 +1580,41 @@ function getU84Question(req: QuestionRequest): Question {
   }
 
   // Interactive LINE_FIT: drag a line to best fit (battle-only preferred).
-  const points = mkNegative(false);
-  const axis = autoAxisForScatter(points);
-  const fit = linReg(points);
-  const tol = 1; // average vertical error tolerance
-  return {
-    id: qid("u84", randInt(rng, 1000, 9999)),
-    prompt: "Drag the line so it best fits the data.",
-    answer: 1,
-    difficulty,
-    tags: ["u8_4", "scatter", "linefit"],
-    kind: "scatter_linefit",
-    build: {
+  {
+    // More variety: different slope directions and steepness.
+    const scenarios = [
+      { m: 2, b: 1 },
+      { m: 1, b: 4 },
+      { m: -1, b: 16 },
+      { m: -2, b: 22 },
+      { m: 0.5, b: 6 },
+      { m: -0.5, b: 14 },
+    ];
+    const sc = pick(rng, scenarios as any) as { m: number; b: number };
+
+    const noise = difficulty >= 3 ? 2 : 1;
+    const points = makeScatterPointsFromLine({ rng, m: sc.m, b: sc.b, xStart: 1, xEnd: 9, n: 8, noise });
+    const axis = autoAxisForScatter(points);
+    const fit = linReg(points);
+    const tol = 1; // average vertical error tolerance
+
+    return {
+      id: qid("u84", randInt(rng, 1000, 9999)),
+      prompt: "Drag the line so it best fits the data.",
+      answer: 1,
+      difficulty,
+      tags: ["u8_4", "scatter", "linefit"],
       kind: "scatter_linefit",
-      axis: { ...axis, xLabel: "x", yLabel: "y" },
-      points,
-      expected: fit,
-      tolerance: tol,
-    },
-    hint: "Try to balance points above and below the line.",
-  };
+      build: {
+        kind: "scatter_linefit",
+        axis: { ...axis, xLabel: "x", yLabel: "y" },
+        points,
+        expected: fit,
+        tolerance: tol,
+      },
+      hint: "Try to balance points above and below the line.",
+    };
+  }
 }
 
 
