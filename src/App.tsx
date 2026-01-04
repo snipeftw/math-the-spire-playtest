@@ -511,6 +511,13 @@ export default function App() {
     { group: "8.3", label: "Survey sampling", packId: "u8_3", tags: "survey" },
     { group: "8.3", label: "Base rate trap", packId: "u8_3", tags: "base_rate" },
     { group: "8.3", label: "Missing context", packId: "u8_3", tags: "context" },
+
+    // Unit 8.4
+    { group: "8.4", label: "Correlation type", packId: "u8_4", tags: "correlation" },
+    { group: "8.4", label: "Outlier", packId: "u8_4", tags: "outlier" },
+    { group: "8.4", label: "Interpolation/Extrapolation", packId: "u8_4", tags: "interp" },
+    { group: "8.4", label: "Line of best fit (battle)", packId: "u8_4", tags: "linefit" },
+    { group: "8.4", label: "Predict using line (battle)", packId: "u8_4", tags: "predict" },
   ];
 
   const QUESTION_FORCE_GROUPS = QUESTION_FORCE_PRESETS.reduce((acc, p) => {

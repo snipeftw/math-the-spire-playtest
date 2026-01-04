@@ -14,6 +14,7 @@ import { SUPPLIES_POOL_10 } from "../content/supplies";
 import { CONSUMABLES_10 } from "../content/consumables";
 import { QuestionVizView } from "../components/QuestionViz";
 import { BoxPlotBuilder, defaultBuildStart } from "../components/BoxPlotBuilder";
+import { ScatterLineFitBuilder, ScatterPredictBuilder, type ScatterLineFitValue, type ScatterPredictValue } from "../components/ScatterBuilders";
 import { NumberReorderHelper } from "../components/NumberReorderHelper";
 import { KeyValuesReorderHelper } from "../components/KeyValuesReorderHelper";
 
@@ -327,6 +328,8 @@ export default function BattleScreen(props: {
 
   // Interactive box-plot build questions (Unit 8.2).
   const [boxplotBuild, setBoxplotBuild] = useState<null | { min: number; q1: number; median: number; q3: number; max: number }>(null);
+  const [scatterLineFit, setScatterLineFit] = useState<ScatterLineFitValue | null>(null);
+  const [scatterPredict, setScatterPredict] = useState<ScatterPredictValue | null>(null);
   const buildMeta = (awaiting as any)?.question?.build as any;
   const buildQuestionKey = String((awaiting as any)?.question?.id ?? (awaiting as any)?.question?.prompt ?? "");
 
@@ -350,7 +353,8 @@ export default function BattleScreen(props: {
   // Auto-focus answer input when a question appears
   useEffect(() => {
     if (!awaiting) return;
-    if (String((awaiting as any)?.question?.kind ?? "") === "boxplot_build") return;
+    const qKind = String((awaiting as any)?.question?.kind ?? "");
+    if (["boxplot_build", "scatter_linefit", "scatter_predict"].includes(qKind)) return;
     setTimeout(() => {
       answerInputRef.current?.focus();
       answerInputRef.current?.select();
@@ -393,6 +397,45 @@ export default function BattleScreen(props: {
     start.max = Math.min(axisMax, Math.max(start.q3, start.max));
 
     setBoxplotBuild(start);
+  }, [buildQuestionKey]);
+
+  // Initialize builder state when an interactive scatter-plot question appears (Unit 8.4).
+  useEffect(() => {
+    if (!awaiting) {
+      setScatterLineFit(null);
+      setScatterPredict(null);
+      return;
+    }
+    const qKind = String((awaiting as any)?.question?.kind ?? "");
+    const m: any = (awaiting as any)?.question?.build ?? {};
+
+    if (qKind === "scatter_linefit" && m && m.axis && m.expected) {
+      const axis = m.axis as any;
+      const xMin = Number(axis.xMin ?? 0);
+      const xMax = Number(axis.xMax ?? 10);
+      const yMin = Number(axis.yMin ?? 0);
+      const yMax = Number(axis.yMax ?? 10);      const yMid = (yMin + yMax) / 2;
+      const jit = (yMax - yMin) * 0.12;
+      const yL = Math.max(yMin, Math.min(yMax, yMid - jit));
+      const yR = Math.max(yMin, Math.min(yMax, yMid + jit));
+      setScatterLineFit({ yLeft: yL, yRight: yR });
+      setScatterPredict(null);
+      return;
+    }
+
+    if (qKind === "scatter_predict" && m && m.axis && (m.line || Number.isFinite(Number(m.targetX)))) {
+      const axis = m.axis as any;
+      const yMin = Number(axis.yMin ?? 0);
+      const yMax = Number(axis.yMax ?? 10);
+      const yMid = (yMin + yMax) / 2;
+      setScatterPredict({ y: yMid });
+      setScatterLineFit(null);
+      return;
+    }
+
+    // otherwise clear
+    setScatterLineFit(null);
+    setScatterPredict(null);
   }, [buildQuestionKey]);
 
   const playerMax = b.playerMaxHP ?? 50;
@@ -1291,24 +1334,52 @@ export default function BattleScreen(props: {
     try { sfx.confirm(); } catch {}
     try {
       const qKind = String((awaiting as any)?.question?.kind ?? "");
+// If debug skip questions is enabled, allow submitting with empty input.
+// For special interactive questions, the answer is encoded from the builder state.
+let answerInput: string;
 
-      // If debug skip questions is enabled, allow submitting with empty input.
-      // For special interactive questions, the answer is encoded from the builder state.
-      let answerInput: string;
-      if (qKind === "boxplot_build") {
-        const exp = (awaiting as any)?.question?.build?.expected;
-        const expStr = exp ? `${Number(exp.min)},${Number(exp.q1)},${Number(exp.median)},${Number(exp.q3)},${Number(exp.max)}` : "";
-        if (props.debugSkipQuestions && !String(input).trim()) {
-          answerInput = expStr;
-        } else {
-          const v = boxplotBuild;
-          answerInput = v ? `${Number(v.min)},${Number(v.q1)},${Number(v.median)},${Number(v.q3)},${Number(v.max)}` : expStr;
-        }
-      } else {
-        answerInput = props.debugSkipQuestions ? String(input || (awaiting as any).question.answer) : String(input);
-      }
-      
-      console.log("submitAnswer: Calling resolveCardAnswer", { 
+if (qKind === "boxplot_build") {
+  const exp = (awaiting as any)?.question?.build?.expected;
+  const expStr = exp ? `${Number(exp.min)},${Number(exp.q1)},${Number(exp.median)},${Number(exp.q3)},${Number(exp.max)}` : "";
+  if (props.debugSkipQuestions && !String(input).trim()) {
+    answerInput = expStr;
+  } else {
+    const v = boxplotBuild;
+    answerInput = v ? `${Number(v.min)},${Number(v.q1)},${Number(v.median)},${Number(v.q3)},${Number(v.max)}` : expStr;
+  }
+} else if (qKind === "scatter_linefit") {
+  const m: any = (awaiting as any)?.question?.build ?? {};
+  const axis: any = m.axis ?? {};
+  const xMin = Number(axis.xMin ?? 0);
+  const xMax = Number(axis.xMax ?? 10);
+  const exp: any = m.expected ?? null;
+  const mExp = Number(exp?.m ?? 0);
+  const bExp = Number(exp?.b ?? 0);
+  const expYL = mExp * xMin + bExp;
+  const expYR = mExp * xMax + bExp;
+  const expStr = `${expYL},${expYR}`;
+
+  if (props.debugSkipQuestions && !String(input).trim()) {
+    answerInput = expStr;
+  } else {
+    const v = scatterLineFit;
+    answerInput = v ? `${Number(v.yLeft)},${Number(v.yRight)}` : expStr;
+  }
+} else if (qKind === "scatter_predict") {
+  const m: any = (awaiting as any)?.question?.build ?? {};
+  const expY = Number(m.expectedY ?? 0);
+  const expStr = String(expY);
+  if (props.debugSkipQuestions && !String(input).trim()) {
+    answerInput = expStr;
+  } else {
+    const v = scatterPredict;
+    answerInput = v ? String(Number(v.y)) : expStr;
+  }
+} else {
+  answerInput = props.debugSkipQuestions ? String(input || (awaiting as any).question.answer) : String(input);
+}
+
+console.log("submitAnswer: Calling resolveCardAnswer", { 
         cardId: awaiting.cardId, 
         input: answerInput,
         battleState: b 
@@ -2240,7 +2311,51 @@ function onDropPlayZone(e: React.DragEvent) {
                     onChange={setBoxplotBuild}
                   />
                 </div>
-              ) : awaiting.question.viz ? (
+              ) : null}
+
+              {String((awaiting as any)?.question?.kind ?? "") === "scatter_linefit" ? (
+                <div style={{ marginTop: 12 }}>
+                  {(() => {
+                    const m: any = (awaiting as any)?.question?.build ?? {};
+                    const axis: any = m.axis ?? {};
+                    const pts: any[] = Array.isArray(m.points) ? m.points : [];
+                    const value = scatterLineFit ?? { yLeft: (Number(axis.yMin ?? 0) + Number(axis.yMax ?? 10)) / 2, yRight: (Number(axis.yMin ?? 0) + Number(axis.yMax ?? 10)) / 2 };
+                    return (
+                      <ScatterLineFitBuilder
+                        axis={axis}
+                        points={pts}
+                        value={value as any}
+                        onChange={setScatterLineFit}
+                      />
+                    );
+                  })()}
+                </div>
+              ) : null}
+
+              {String((awaiting as any)?.question?.kind ?? "") === "scatter_predict" ? (
+                <div style={{ marginTop: 12 }}>
+                  {(() => {
+                    const m: any = (awaiting as any)?.question?.build ?? {};
+                    const axis: any = m.axis ?? {};
+                    const pts: any[] = Array.isArray(m.points) ? m.points : [];
+                    const line: any = m.line ?? { m: 0, b: 0 };
+                    const targetX = Number(m.targetX ?? 0);
+                    const value = scatterPredict ?? { y: (Number(axis.yMin ?? 0) + Number(axis.yMax ?? 10)) / 2 };
+                    return (
+                      <ScatterPredictBuilder
+                        axis={axis}
+                        points={pts}
+                        line={line}
+                        targetX={targetX}
+                        value={value as any}
+                        onChange={setScatterPredict}
+                      />
+                    );
+                  })()}
+                </div>
+              ) : null}
+
+              {!(["boxplot_build", "scatter_linefit", "scatter_predict"].includes(String((awaiting as any)?.question?.kind ?? ""))) && awaiting.question.viz ? (
                 <QuestionVizView viz={awaiting.question.viz as any} />
               ) : null}
 
@@ -2248,7 +2363,7 @@ function onDropPlayZone(e: React.DragEvent) {
                 const q: any = awaiting.question as any;
                 const tags = Array.isArray(q?.tags) ? q.tags.map((x: any) => String(x ?? "")) : [];
                 const hasDataset = Array.isArray(q?.dataset) && q.dataset.length > 0;
-                const isBuilder = String(q?.kind ?? "") === "boxplot_build";
+                const isBuilder = ["boxplot_build", "scatter_linefit", "scatter_predict"].includes(String(q?.kind ?? ""));
 
                 // Sorting helper for any dataset-based question (Unit 8.1 + Unit 8.2, etc.)
                 if (hasDataset && !isBuilder) {
@@ -2357,25 +2472,47 @@ function onDropPlayZone(e: React.DragEvent) {
               <div style={{ height: 12 }} />
 
               <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                {awaiting && String((awaiting as any)?.question?.kind ?? "") === "boxplot_build" ? (
-                  <div className="row" style={{ gap: 8 }}>
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        const axisMin = Number((awaiting as any)?.question?.build?.axisMin ?? 0);
-                        const axisMax = Number((awaiting as any)?.question?.build?.axisMax ?? 10);
-                        setBoxplotBuild(defaultBuildStart(axisMin, axisMax));
-                      }}
-                      disabled={!awaiting}
-                    >
-                      Reset Plot
-                    </button>
-                    <button className="btn primary" onClick={submitAnswer} disabled={!awaiting}>
-                      Submit
-                    </button>
-                  </div>
-                ) : (
-                  <div className="row">
+                
+{awaiting && ["boxplot_build", "scatter_linefit", "scatter_predict"].includes(String((awaiting as any)?.question?.kind ?? "")) ? (
+  <div className="row" style={{ gap: 8 }}>
+    <button
+      className="btn"
+      onClick={() => {
+        const k = String((awaiting as any)?.question?.kind ?? "");
+        if (k === "boxplot_build") {
+          const axisMin = Number((awaiting as any)?.question?.build?.axisMin ?? 0);
+          const axisMax = Number((awaiting as any)?.question?.build?.axisMax ?? 10);
+          setBoxplotBuild(defaultBuildStart(axisMin, axisMax));
+        } else if (k === "scatter_linefit") {
+          const m: any = (awaiting as any)?.question?.build ?? {};
+          const axis: any = m.axis ?? {};
+          const yMin = Number(axis.yMin ?? 0);
+          const yMax = Number(axis.yMax ?? 10);
+          const yMid = (yMin + yMax) / 2;
+          const jit = (yMax - yMin) * 0.12;
+          setScatterLineFit({ yLeft: Math.max(yMin, Math.min(yMax, yMid - jit)), yRight: Math.max(yMin, Math.min(yMax, yMid + jit)) });
+        } else if (k === "scatter_predict") {
+          const m: any = (awaiting as any)?.question?.build ?? {};
+          const axis: any = m.axis ?? {};
+          const yMin = Number(axis.yMin ?? 0);
+          const yMax = Number(axis.yMax ?? 10);
+          setScatterPredict({ y: (yMin + yMax) / 2 });
+        }
+      }}
+      disabled={!awaiting}
+    >
+      {String((awaiting as any)?.question?.kind ?? "") === "boxplot_build"
+        ? "Reset Plot"
+        : String((awaiting as any)?.question?.kind ?? "") === "scatter_linefit"
+          ? "Reset Line"
+          : "Reset Point"}
+    </button>
+    <button className="btn primary" onClick={submitAnswer} disabled={!awaiting}>
+      Submit
+    </button>
+  </div>
+) : (
+  <div className="row">
                     <input
                       ref={answerInputRef}
                       value={input}

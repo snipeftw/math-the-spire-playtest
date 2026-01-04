@@ -94,6 +94,27 @@ export function tryUseConsumableInBattle(opts: {
         if (exp) {
           answer = `${Number(exp.min)},${Number(exp.q1)},${Number(exp.median)},${Number(exp.q3)},${Number(exp.max)}`;
         }
+      } else if (String(q.kind ?? "") === "scatter_linefit") {
+        // Encode yLeft,yRight at the axis endpoints.
+        const build: any = q?.build ?? {};
+        const axis: any = build.axis ?? {};
+        const exp: any = build.expected ?? {};
+        const xMin = Number(axis.xMin ?? 0);
+        const xMax = Number(axis.xMax ?? 10);
+        const m = Number(exp.m ?? 0);
+        const b = Number(exp.b ?? 0);
+        const yL = m * xMin + b;
+        const yR = m * xMax + b;
+        if (Number.isFinite(yL) && Number.isFinite(yR)) {
+          answer = `${yL},${yR}`;
+        }
+      } else if (String(q.kind ?? "") === "scatter_predict") {
+        // Encode predicted y-value.
+        const build: any = q?.build ?? {};
+        const y = Number(build.expectedY ?? NaN);
+        if (Number.isFinite(y)) {
+          answer = String(y);
+        }
       }
     } catch {}
     const next = resolveCardAnswer({ rng, state, input: answer });

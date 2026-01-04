@@ -1713,7 +1713,55 @@ export function resolveCardAnswer(opts: { rng: RNG; state: BattleState; input: s
       } else {
         expectedForLog = expNums ? `${expNums[0]},${expNums[1]},${expNums[2]},${expNums[3]},${expNums[4]}` : "";
       }
-    } else {
+    
+} else if (qKind === "scatter_linefit") {
+  const build: any = (awaiting.question as any)?.build ?? {};
+  const axis: any = build.axis ?? {};
+  const exp: any = build.expected ?? {};
+  const x1 = Number(axis.xMin ?? 0);
+  const x2 = Number(axis.xMax ?? 10);
+  const mExp = Number(exp.m ?? 0);
+  const bExp = Number(exp.b ?? 0);
+  const tol = Number(build.tolerance ?? 1);
+
+  const parseTwo = (s: string): [number, number] | null => {
+    const parts0 = s
+      .split(/[,|]/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const parts = parts0.length === 2 ? parts0 : s.split(/\s+/).map((p) => p.trim()).filter(Boolean);
+    if (parts.length !== 2) return null;
+    const a = Number(parts[0].replace(",", "."));
+    const b = Number(parts[1].replace(",", "."));
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+    return [a, b];
+  };
+
+  const got = parseTwo(inputRaw);
+  const expYL = mExp * x1 + bExp;
+  const expYR = mExp * x2 + bExp;
+  expectedForLog = `best-fit line (y≈${mExp.toFixed(2)}x+${bExp.toFixed(2)})`;
+
+  if (got && Number.isFinite(x1) && Number.isFinite(x2) && x2 !== x1) {
+    const [yL, yR] = got;
+    const mStu = (yR - yL) / (x2 - x1);
+    const bStu = yL - mStu * x1;
+    const xs = [x1, (x1 + x2) / 2, x2];
+    const err = xs.reduce((acc, x) => acc + Math.abs((mStu * x + bStu) - (mExp * x + bExp)), 0) / xs.length;
+    correct = Number.isFinite(err) && err <= tol;
+  } else {
+    correct = false;
+  }
+
+} else if (qKind === "scatter_predict") {
+  const build: any = (awaiting.question as any)?.build ?? {};
+  const expY = Number(build.expectedY ?? NaN);
+  const tol = Number(build.tolerance ?? 1);
+  const parsed = Number(inputRaw.replace(",", "."));
+  expectedForLog = Number.isFinite(expY) ? `y≈${expY.toFixed(2)} (±${tol})` : String(expected ?? "");
+  correct = Number.isFinite(parsed) && Number.isFinite(expY) && Math.abs(parsed - expY) <= tol;
+
+} else {
       // Default: numeric equality
       const parsed = Number(inputRaw.replace(",", "."));
       const expNum = Number(expected);

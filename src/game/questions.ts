@@ -6,6 +6,9 @@ export type Difficulty = 1 | 2 | 3;
 
 // Optional visual shown above a question prompt.
 // (Rendered by UI; used for Unit 8.2 box plots.)
+
+
+
 export type QuestionViz =
   | {
       kind: "boxplot";
@@ -51,7 +54,65 @@ export type QuestionViz =
       a: { src: string; alt?: string; caption?: string };
       b: { src: string; alt?: string; caption?: string };
       maxHeight?: number;
+    }
+  | {
+      kind: "scatter";
+      title?: string;
+      xLabel?: string;
+      yLabel?: string;
+      xMin?: number;
+      xMax?: number;
+      yMin?: number;
+      yMax?: number;
+      xTickStep?: number;
+      yTickStep?: number;
+      points: Array<{ x: number; y: number; label?: string }>;
+      // Optional line to display (e.g., line of best fit)
+      line?: { m: number; b: number; label?: string };
+      // Optional vertical guide
+      guideX?: number;
     };
+
+
+type BoxplotBuild = {
+  kind: "boxplot";
+  data: number[];
+  expected: { min: number; q1: number; median: number; q3: number; max: number };
+  axisMin: number;
+  axisMax: number;
+  tickStep: number;
+};
+
+type ScatterAxis = {
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  xTickStep: number;
+  yTickStep: number;
+  xLabel?: string;
+  yLabel?: string;
+};
+
+type ScatterPoint = { x: number; y: number; label?: string };
+
+type ScatterLineFitBuild = {
+  kind: "scatter_linefit";
+  axis: ScatterAxis;
+  points: ScatterPoint[];
+  expected: { m: number; b: number };
+  tolerance: number; // average vertical error tolerance
+};
+
+type ScatterPredictBuild = {
+  kind: "scatter_predict";
+  axis: ScatterAxis;
+  points: ScatterPoint[];
+  line: { m: number; b: number };
+  targetX: number;
+  expectedY: number;
+  tolerance: number;
+};
 
 export type Question = {
   id: string;
@@ -63,17 +124,10 @@ export type Question = {
   dataset?: number[];
   // Optional: special interaction mode for answering.
   // (Default/undefined = normal numeric input.)
-  kind?: "boxplot_build";
+  kind?: "boxplot_build" | "scatter_linefit" | "scatter_predict";
   // Extra data needed for special interactive questions.
   // Currently used for Unit 8.2 build-your-own box plot questions.
-  build?: {
-    kind: "boxplot";
-    data: number[];
-    expected: { min: number; q1: number; median: number; q3: number; max: number };
-    axisMin: number;
-    axisMax: number;
-    tickStep: number;
-  };
+  build?: BoxplotBuild | ScatterLineFitBuild | ScatterPredictBuild;
   viz?: QuestionViz;
   hint?: string;
   difficulty: Difficulty;
@@ -107,6 +161,13 @@ export const QUESTION_PACKS: QuestionPack[] = [
     label: "Unit 8.3 — Misuse of Data in the Media",
     description: "Spot misleading graphs, sampling issues, and shaky conclusions.",
   },
+
+{
+  id: "u8_4",
+  label: "Unit 8.4 — Scatter Plots & Lines of Best Fit",
+  description: "Scatter plots, correlation, outliers, and estimating/predicting with a line of best fit.",
+},
+
 ];
 
 export type QuestionRequest = {
@@ -1169,10 +1230,291 @@ function getU83Question(req: QuestionRequest): Question {
 }
 
 
+function linReg(points: { x: number; y: number }[]): { m: number; b: number } {
+  const n = points.length;
+  if (!n) return { m: 0, b: 0 };
+  let sx = 0,
+    sy = 0,
+    sxx = 0,
+    sxy = 0;
+  for (const p of points) {
+    sx += p.x;
+    sy += p.y;
+    sxx += p.x * p.x;
+    sxy += p.x * p.y;
+  }
+  const xBar = sx / n;
+  const yBar = sy / n;
+  const denom = sxx - n * xBar * xBar;
+  if (Math.abs(denom) < 1e-9) return { m: 0, b: yBar };
+  const m = (sxy - n * xBar * yBar) / denom;
+  const b = yBar - m * xBar;
+  return { m, b };
+}
+
+function autoAxisForScatter(points: { x: number; y: number }[]): ScatterAxis {
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const padX = Math.max(1, Math.round((maxX - minX) * 0.12));
+  const padY = Math.max(1, Math.round((maxY - minY) * 0.12));
+  let xMin = Math.floor(minX - padX);
+  let xMax = Math.ceil(maxX + padX);
+  let yMin = Math.floor(minY - padY);
+  let yMax = Math.ceil(maxY + padY);
+  if (xMin === xMax) {
+    xMin -= 1;
+    xMax += 1;
+  }
+  if (yMin === yMax) {
+    yMin -= 1;
+    yMax += 1;
+  }
+  const spanX = Math.max(1, xMax - xMin);
+  const spanY = Math.max(1, yMax - yMin);
+  const xTickStep = spanX <= 12 ? 1 : spanX <= 24 ? 2 : 5;
+  const yTickStep = spanY <= 12 ? 1 : spanY <= 24 ? 2 : 5;
+  // snap mins to tick
+  xMin = Math.floor(xMin / xTickStep) * xTickStep;
+  xMax = Math.ceil(xMax / xTickStep) * xTickStep;
+  yMin = Math.floor(yMin / yTickStep) * yTickStep;
+  yMax = Math.ceil(yMax / yTickStep) * yTickStep;
+  return { xMin, xMax, yMin, yMax, xTickStep, yTickStep };
+}
+
+function makeScatterPointsFromLine(opts: {
+  rng: RNG;
+  m: number;
+  b: number;
+  xStart: number;
+  xEnd: number;
+  n: number;
+  noise: number;
+  labelPoints?: boolean;
+}): ScatterPoint[] {
+  const { rng, m, b, xStart, xEnd, n, noise, labelPoints } = opts;
+  const out: ScatterPoint[] = [];
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  for (let i = 0; i < n; i++) {
+    const x = xStart + Math.round((i * (xEnd - xStart)) / Math.max(1, n - 1));
+    const eps = randInt(rng, -noise, noise);
+    const y = Math.round(m * x + b + eps);
+    out.push({ x, y, label: labelPoints ? letters[i] : undefined });
+  }
+  return out;
+}
+
+function makeCloudPoints(opts: { rng: RNG; xMin: number; xMax: number; yMin: number; yMax: number; n: number }): ScatterPoint[] {
+  const { rng, xMin, xMax, yMin, yMax, n } = opts;
+  const out: ScatterPoint[] = [];
+  for (let i = 0; i < n; i++) {
+    out.push({ x: randInt(rng, xMin, xMax), y: randInt(rng, yMin, yMax) });
+  }
+  return out;
+}
+
+function getU84Question(req: QuestionRequest): Question {
+  const { rng, difficulty } = req;
+
+  const tagSet = new Set((req.tags ?? []).map((t) => String(t ?? "")));
+  const isBattleContext = tagSet.has("context:battle");
+
+  const requireTagSet = new Set(
+    (req.requireTags ?? [])
+      .map((t) => String(t ?? "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  const forceLineFit = isBattleContext && (requireTagSet.has("linefit") || requireTagSet.has("line_fit") || requireTagSet.has("scatter_linefit"));
+  const forcePredict = isBattleContext && (requireTagSet.has("predict") || requireTagSet.has("scatter_predict"));
+  const forceRead = requireTagSet.has("read") || requireTagSet.has("correlation") || requireTagSet.has("outlier") || requireTagSet.has("interp") || requireTagSet.has("extrap");
+
+  const KINDS =
+    difficulty === 1
+      ? (["CORR_TYPE", "OUTLIER", "INTERP_EXTRAP"] as const)
+      : difficulty === 2
+        ? (["CORR_TYPE", "OUTLIER", "INTERP_EXTRAP", "PREDICT", "LINE_FIT"] as const)
+        : (["CORR_TYPE", "OUTLIER", "INTERP_EXTRAP", "PREDICT", "LINE_FIT"] as const);
+
+  let kind = pick(rng, (KINDS as readonly string[]).slice() as any) as string;
+  if (forceLineFit) kind = "LINE_FIT";
+  else if (forcePredict) kind = "PREDICT";
+  else if (forceRead) {
+    // keep chosen kind if it is a read type; otherwise bias to a read type
+    if (!["CORR_TYPE", "OUTLIER", "INTERP_EXTRAP"].includes(kind)) kind = pick(rng, ["CORR_TYPE", "OUTLIER", "INTERP_EXTRAP"] as any) as any;
+  }
+
+  // IMPORTANT: interactive scatter questions are battle-only. In non-battle contexts, fall back to read questions.
+  if (!isBattleContext && (kind === "PREDICT" || kind === "LINE_FIT")) {
+    kind = pick(rng, ["CORR_TYPE", "OUTLIER", "INTERP_EXTRAP"] as any) as any;
+  }
+
+  // Build a few stable scenarios.
+  const POS = { m: 2, b: 1 };
+  const NEG = { m: -1, b: 14 };
+
+  const mkPositive = (labelPoints = false) => makeScatterPointsFromLine({ rng, ...POS, xStart: 1, xEnd: 8, n: 8, noise: 1, labelPoints });
+  const mkNegative = (labelPoints = false) => makeScatterPointsFromLine({ rng, ...NEG, xStart: 1, xEnd: 8, n: 8, noise: 1, labelPoints });
+  const mkNone = () => makeCloudPoints({ rng, xMin: 1, xMax: 8, yMin: 4, yMax: 16, n: 10 });
+
+  if (kind === "CORR_TYPE") {
+    const which = pick(rng, ["pos", "neg", "none"] as const);
+    const points = which === "pos" ? mkPositive(false) : which === "neg" ? mkNegative(false) : mkNone();
+    const axis = autoAxisForScatter(points);
+    const options = ["Positive correlation", "Negative correlation", "No correlation"]; // 1..3
+    const answer = which === "pos" ? 1 : which === "neg" ? 2 : 3;
+    return {
+      id: qid("u84", randInt(rng, 1000, 9999)),
+      prompt: choicePromptGeneric("Look at the scatter plot. What type of correlation does it show?", options),
+      answer,
+      difficulty,
+      tags: ["u8_4", "scatter", "read", "correlation"],
+      viz: {
+        kind: "scatter",
+        title: "Scatter plot",
+        xLabel: "x",
+        yLabel: "y",
+        ...axis,
+        points,
+      } as any,
+      hint: "Positive: goes up as x increases. Negative: goes down. None: no clear trend.",
+    };
+  }
+
+  if (kind === "OUTLIER") {
+    const base = mkPositive(true);
+    // pick a label to become the outlier
+    const outIdx = randInt(rng, 2, Math.min(6, base.length - 2));
+    const outLabel = base[outIdx].label ?? "C";
+    const points = base.map((p, i) => (i === outIdx ? { ...p, y: p.y + randInt(rng, 6, 9) } : p));
+    const axis = autoAxisForScatter(points);
+    // Offer 4 choices: correct label + 3 other labels
+    const labels = points.map((p) => p.label).filter(Boolean) as string[];
+    const pool = labels.filter((l) => l !== outLabel);
+    const distractors: string[] = [];
+    while (distractors.length < 3 && pool.length) {
+      const d = pick(rng, pool as any) as string;
+      if (!distractors.includes(d)) distractors.push(d);
+    }
+    const opts = [outLabel, ...distractors].slice(0, 4);
+    // shuffle options
+    for (let i = opts.length - 1; i > 0; i--) {
+      const j = randInt(rng, 0, i);
+      [opts[i], opts[j]] = [opts[j], opts[i]];
+    }
+    const answer = opts.indexOf(outLabel) + 1;
+    return {
+      id: qid("u84", randInt(rng, 1000, 9999)),
+      prompt: choicePromptGeneric("One point doesn’t match the overall pattern. Which labelled point is an outlier?", opts.map((o) => `Point ${o}`)),
+      answer,
+      difficulty,
+      tags: ["u8_4", "scatter", "read", "outlier"],
+      viz: {
+        kind: "scatter",
+        title: "Scatter plot (labelled points)",
+        xLabel: "x",
+        yLabel: "y",
+        ...axis,
+        points,
+      } as any,
+      hint: "An outlier is far from the main cluster/trend.",
+    };
+  }
+
+  if (kind === "INTERP_EXTRAP") {
+    const points = mkNegative(false);
+    const axis = autoAxisForScatter(points);
+    const { m, b } = linReg(points);
+    const line = { m, b };
+    const xIn = randInt(rng, 2, 7);
+    const xOut = randInt(rng, 9, 12);
+    const useOut = rng() < 0.5;
+    const x = useOut ? xOut : xIn;
+    const options = ["Interpolation (inside the data range)", "Extrapolation (outside the data range)"];
+    const answer = useOut ? 2 : 1;
+    return {
+      id: qid("u84", randInt(rng, 1000, 9999)),
+      prompt: choicePromptGeneric(
+        `Using the line of best fit, estimating the value at x = ${x} is…`,
+        options
+      ),
+      answer,
+      difficulty,
+      tags: ["u8_4", "scatter", "read", useOut ? "extrap" : "interp"],
+      viz: {
+        kind: "scatter",
+        title: "Scatter plot + line of best fit",
+        xLabel: "x",
+        yLabel: "y",
+        ...axis,
+        points,
+        line,
+        guideX: x,
+      } as any,
+      hint: "Interpolation is within the x-values you already have; extrapolation is beyond them.",
+    };
+  }
+
+  // Interactive PREDICT: drag a point on a vertical guide line (battle-only preferred).
+  if (kind === "PREDICT") {
+    const points = mkPositive(false);
+    const axis = autoAxisForScatter(points);
+    const fit = linReg(points);
+    const targetX = randInt(rng, 2, 7);
+    const expectedY = fit.m * targetX + fit.b;
+    const tol = 1; // user-set tolerance
+    return {
+      id: qid("u84", randInt(rng, 1000, 9999)),
+      prompt: `Drag the dot to your best estimate on the line of best fit at x = ${targetX}.`,
+      answer: 1,
+      difficulty,
+      tags: ["u8_4", "scatter", "predict"],
+      kind: "scatter_predict",
+      build: {
+        kind: "scatter_predict",
+        axis: { ...axis, xLabel: "x", yLabel: "y" },
+        points,
+        line: fit,
+        targetX,
+        expectedY,
+        tolerance: tol,
+      },
+      hint: "The line of best fit should go through the middle of the points.",
+    };
+  }
+
+  // Interactive LINE_FIT: drag a line to best fit (battle-only preferred).
+  const points = mkNegative(false);
+  const axis = autoAxisForScatter(points);
+  const fit = linReg(points);
+  const tol = 1; // average vertical error tolerance
+  return {
+    id: qid("u84", randInt(rng, 1000, 9999)),
+    prompt: "Drag the line so it best fits the data.",
+    answer: 1,
+    difficulty,
+    tags: ["u8_4", "scatter", "linefit"],
+    kind: "scatter_linefit",
+    build: {
+      kind: "scatter_linefit",
+      axis: { ...axis, xLabel: "x", yLabel: "y" },
+      points,
+      expected: fit,
+      tolerance: tol,
+    },
+    hint: "Try to balance points above and below the line.",
+  };
+}
+
+
 const PACK_GENERATORS: Record<string, (req: QuestionRequest) => Question> = {
   u8_1: getU81Question,
   u8_2: getU82Question,
   u8_3: getU83Question,
+  u8_4: getU84Question,
 
 };
 
