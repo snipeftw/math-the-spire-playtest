@@ -14,6 +14,7 @@ import {
 import { getEventById } from "../content/events";
 import { eventImg } from "../content/assetUrls";
 import { sfx } from "../game/sfx";
+import { QuestionVizView } from "../components/QuestionViz";
 
 type ShopItemKind = "card" | "consumable" | "supply";
 
@@ -1916,7 +1917,8 @@ return (ev?.choices ?? []).map((c) => ({
                             {showQuiz ? (
                               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                 <div style={{ fontWeight: 900 }}>Answer to negate the penalty</div>
-                                <div style={{ fontSize: 18 }}>{String(quiz.question?.prompt ?? "Solve:")}</div>
+                                {quiz.question?.viz ? <QuestionVizView viz={quiz.question.viz as any} /> : null}
+                                <div style={{ fontSize: 18, whiteSpace: "pre-wrap" }}>{String(quiz.question?.prompt ?? "Solve:")}</div>
                                 {props.showHints !== false && quiz.question?.hint ? (
                                   <div className="muted" style={{ fontSize: 12 }}>Hint: {String(quiz.question.hint)}</div>
                                 ) : null}

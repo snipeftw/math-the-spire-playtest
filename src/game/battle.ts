@@ -1060,7 +1060,7 @@ export type BattleState = {
 
   awaiting: null | {
     cardId: string;
-    question: { prompt: string; answer: string | number; hint?: string };
+    question: { prompt: string; answer: string | number; hint?: string; viz?: any };
   };
 
   awaitingDiscard?: null | {
@@ -1634,6 +1634,7 @@ export function chooseCard(state: BattleState, rng: RNG, cardId: string): Battle
         prompt: q.prompt,
         answer: q.answer,
         hint: q.hint,
+        viz: (q as any).viz,
       },
     },
     lastResult: null,

@@ -4,11 +4,45 @@ import { pick, randInt } from "./rng";
 
 export type Difficulty = 1 | 2 | 3;
 
+// Optional visual shown above a question prompt.
+// (Rendered by UI; used for Unit 8.2 box plots.)
+export type QuestionViz =
+  | {
+      kind: "boxplot";
+      title?: string;
+      // five-number summary
+      min: number;
+      q1: number;
+      median: number;
+      q3: number;
+      max: number;
+      // axis
+      axisMin?: number;
+      axisMax?: number;
+      tickStep?: number;
+    }
+  | {
+      kind: "boxplot_compare";
+      title?: string;
+      plots: Array<{
+        label: string;
+        min: number;
+        q1: number;
+        median: number;
+        q3: number;
+        max: number;
+      }>;
+      axisMin?: number;
+      axisMax?: number;
+      tickStep?: number;
+    };
+
 export type Question = {
   id: string;
   prompt: string;
   // for now: numeric answers only (keeps engine simple)
   answer: number;
+  viz?: QuestionViz;
   hint?: string;
   difficulty: Difficulty;
   tags: string[];
@@ -30,6 +64,11 @@ export const QUESTION_PACKS: QuestionPack[] = [
     id: "u8_1",
     label: "Unit 8.1 — Mean, Median, Mode & Range",
     description: "Data management basics with small data sets.",
+  },
+  {
+    id: "u8_2",
+    label: "Unit 8.2 — Quartiles & Box Plots",
+    description: "Five-number summaries and interpreting box-and-whisker plots.",
   },
 ];
 
@@ -54,6 +93,16 @@ function normalizePrompt(s: string): string {
     .trim();
 }
 
+function stableStringify(v: any): string {
+  if (v == null) return "";
+  if (typeof v !== "object") return String(v);
+  if (Array.isArray(v)) return `[${v.map(stableStringify).join(",")}]`;
+  const keys = Object.keys(v).sort();
+  const parts: string[] = [];
+  for (const k of keys) parts.push(`${k}:${stableStringify((v as any)[k])}`);
+  return `{${parts.join(",")}}`;
+}
+
 function hash32(str: string): number {
   // simple deterministic 32-bit hash (FNV-1a style)
   let h = 2166136261;
@@ -66,7 +115,8 @@ function hash32(str: string): number {
 
 function signatureFor(packId: string, q: Question): string {
   const tags = Array.isArray(q.tags) ? q.tags.slice().sort().join(",") : "";
-  const base = `${packId}|${q.difficulty}|${normalizePrompt(q.prompt)}|${Number(q.answer)}|${tags}`;
+  const viz = q.viz ? stableStringify(q.viz) : "";
+  const base = `${packId}|${q.difficulty}|${normalizePrompt(q.prompt)}|${Number(q.answer)}|${tags}|${viz}`;
   return `q:${packId}:${hash32(base).toString(36)}`;
 }
 
@@ -121,6 +171,25 @@ function range(nums: number[]): number {
     if (n > hi) hi = n;
   }
   return hi - lo;
+}
+
+function fiveNumberSummary(nums: number[]): { min: number; q1: number; median: number; q3: number; max: number } {
+  if (!nums.length) return { min: 0, q1: 0, median: 0, q3: 0, max: 0 };
+  const a = nums.slice().sort((x, y) => x - y);
+  const n = a.length;
+  const med = median(a);
+  let lower: number[];
+  let upper: number[];
+  if (n % 2 === 1) {
+    lower = a.slice(0, Math.floor(n / 2));
+    upper = a.slice(Math.floor(n / 2) + 1);
+  } else {
+    lower = a.slice(0, n / 2);
+    upper = a.slice(n / 2);
+  }
+  const q1 = lower.length ? median(lower) : a[0];
+  const q3 = upper.length ? median(upper) : a[n - 1];
+  return { min: a[0], q1, median: med, q3, max: a[n - 1] };
 }
 
 function fmtData(nums: number[]): string {
@@ -237,6 +306,22 @@ function makeU81Dataset(rng: RNG, difficulty: Difficulty): number[] {
   return a;
 }
 
+function u81MaxLen(difficulty: Difficulty): number {
+  // Keep early fights snappy; later fights can handle slightly longer lists.
+  return difficulty === 1 ? 10 : difficulty === 2 ? 13 : 16;
+}
+
+function limitLenSeeded(rng: RNG, arr: number[], maxLen: number): number[] {
+  if (arr.length <= maxLen) return arr;
+  const a = arr.slice();
+  // Remove random elements until we hit the cap.
+  while (a.length > maxLen) {
+    const idx = randInt(rng, 0, a.length - 1);
+    a.splice(idx, 1);
+  }
+  return a;
+}
+
 function getU81Question(req: QuestionRequest): Question {
   const { rng, difficulty } = req;
 
@@ -304,7 +389,8 @@ function getU81Question(req: QuestionRequest): Question {
     [88, 56, 71, 24, 84, 65, 65, 64, 71, 90, 71, 60, 76, 9],
   ];
   const useWorksheet = pick(rng, [true, false, false, false] as const);
-  const data = useWorksheet ? pick(rng, WORKSHEET_SETS).slice() : makeU81Dataset(rng, difficulty);
+  const raw = useWorksheet ? pick(rng, WORKSHEET_SETS).slice() : makeU81Dataset(rng, difficulty);
+  const data = limitLenSeeded(rng, raw, u81MaxLen(difficulty));
 
   const ctx = pick(rng, CONTEXTS);
   const useWordProblem = pick(rng, [true, false, false] as const);
@@ -353,7 +439,7 @@ function getU81Question(req: QuestionRequest): Question {
     let d = data.slice();
     let m = modeUnique(d);
     for (let tries = 0; tries < 6 && m == null; tries++) {
-      d = makeU81Dataset(rng, difficulty);
+      d = limitLenSeeded(rng, makeU81Dataset(rng, difficulty), u81MaxLen(difficulty));
       m = modeUnique(d);
     }
     if (m == null) {
@@ -444,7 +530,7 @@ function getU81Question(req: QuestionRequest): Question {
     let d = data.slice();
     let m = modeUnique(d);
     for (let tries = 0; tries < 6 && m == null; tries++) {
-      d = makeU81Dataset(rng, difficulty);
+      d = limitLenSeeded(rng, makeU81Dataset(rng, difficulty), u81MaxLen(difficulty));
       m = modeUnique(d);
     }
     if (m == null) {
@@ -478,8 +564,271 @@ function getU81Question(req: QuestionRequest): Question {
   };
 }
 
+// -------------------------
+// Unit 8.2 — Quartiles & Box Plots
+// -------------------------
+
+function u82MaxLen(difficulty: Difficulty): number {
+  // Quartiles are a bit more work than mean/median; keep early runs snappy.
+  return difficulty === 1 ? 11 : difficulty === 2 ? 14 : 16;
+}
+
+function makeU82Dataset(rng: RNG, difficulty: Difficulty): number[] {
+  const n = difficulty === 1 ? randInt(rng, 9, 11) : difficulty === 2 ? randInt(rng, 11, 13) : randInt(rng, 13, 15);
+  const hi = difficulty === 1 ? 20 : difficulty === 2 ? 40 : 80;
+  const lo = 0;
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) out.push(randInt(rng, lo, hi));
+  return out;
+}
+
+function niceTickStep(minV: number, maxV: number, hasHalf: boolean): number {
+  const span = Math.max(1, maxV - minV);
+  if (hasHalf) return 0.5;
+  if (span <= 16) return 1;
+  if (span <= 40) return 2;
+  if (span <= 80) return 5;
+  return 10;
+}
+
+function autoAxisForBoxplot(sum: { min: number; q1: number; median: number; q3: number; max: number }): {
+  axisMin: number;
+  axisMax: number;
+  tickStep: number;
+} {
+  const hasHalf = [sum.min, sum.q1, sum.median, sum.q3, sum.max].some((x) => Math.abs(x * 2 - Math.round(x * 2)) < 1e-9 && Math.abs(x - Math.round(x)) > 1e-9);
+  const step = niceTickStep(sum.min, sum.max, hasHalf);
+  // Add a little margin so whiskers aren't pinned to the edges.
+  const pad = step * 2;
+  const axisMin = Math.floor((sum.min - pad) / step) * step;
+  const axisMax = Math.ceil((sum.max + pad) / step) * step;
+  return { axisMin, axisMax, tickStep: step };
+}
+
+function choicePromptGeneric(stem: string, options: string[]): string {
+  const lines = ["Enter the number.", ...options.map((o, i) => `${i + 1}) ${o}`)];
+  return `${stem}\n\n${lines.join("\n")}`;
+}
+
+function getU82Question(req: QuestionRequest): Question {
+  const { rng, difficulty } = req;
+
+  const KINDS =
+    difficulty === 1
+      ? (["READ_MEDIAN", "DATASET_MEDIAN", "READ_MIN", "READ_MAX"] as const)
+      : difficulty === 2
+        ? ([
+            "READ_Q1",
+            "READ_Q3",
+            "READ_MEDIAN",
+            "DATASET_Q1",
+            "DATASET_MEDIAN",
+            "DATASET_Q3",
+          ] as const)
+        : ([
+            "READ_Q1",
+            "READ_Q3",
+            "READ_MEDIAN",
+            "DATASET_Q1",
+            "DATASET_MEDIAN",
+            "DATASET_Q3",
+            "COMPARE_MEDIAN",
+          ] as const);
+
+  const kind = pick(rng, (KINDS as readonly string[]).slice() as any);
+
+  // Worksheet-aligned data and boxplots (so students see familiar-looking questions).
+  // (Values match your 8.2 materials.)
+  const WORKSHEET_DATASETS: number[][] = [
+    // Worksheet Q3 (page 2)
+    [1, 3, 3, 4, 5, 8, 8, 9, 10, 12, 15],
+    [78, 66, 51, 56, 60, 70, 74, 70, 76, 59, 57, 71, 65, 76],
+    [23, 21, 20, 21, 26, 25, 21, 20, 23, 24, 21, 25, 23, 21],
+  ];
+
+  const FIXED_BOXPLOTS: Array<{ title: string; sum: { min: number; q1: number; median: number; q3: number; max: number }; axisMin: number; axisMax: number; tickStep: number }> = [
+    // Worksheet Q1: Box-whisker plot 1 (min 2, Q1 3.5, median 5, Q3 7, max 9)
+    { title: "Boxplot 1", sum: { min: 2, q1: 3.5, median: 5, q3: 7, max: 9 }, axisMin: 0, axisMax: 10, tickStep: 0.5 },
+    // Worksheet Q1: Box-whisker plot 2 (min 17, Q1 21, median 22.5, Q3 24, max 29)
+    { title: "Boxplot 2", sum: { min: 17, q1: 21, median: 22.5, q3: 24, max: 29 }, axisMin: 15, axisMax: 30, tickStep: 0.5 },
+    // Worksheet Q2: Given five main points 1,3,6,7,13
+    { title: "Boxplot", sum: { min: 1, q1: 3, median: 6, q3: 7, max: 13 }, axisMin: 0, axisMax: 16, tickStep: 1 },
+    // Worksheet Q2: Given five main points 54,56,60,74,77
+    { title: "Boxplot", sum: { min: 54, q1: 56, median: 60, q3: 74, max: 77 }, axisMin: 50, axisMax: 80, tickStep: 1 },
+  ];
+
+  // Word problem contexts (change of pace)
+  const CONTEXTS: { label: string; lead: string; unit?: string }[] = [
+    { label: "quiz", lead: "A class wrote a quiz (scores out of 20):", unit: "out of 20" },
+    { label: "steps", lead: "A student recorded their steps each day:", unit: "steps" },
+    { label: "shots", lead: "A hockey team recorded how many shots they got each game:", unit: "shots" },
+    { label: "practice", lead: "Players recorded minutes of practice:", unit: "minutes" },
+  ];
+
+  const useWorksheet = pick(rng, [true, false, false, false] as const);
+  const raw = useWorksheet ? pick(rng, WORKSHEET_DATASETS).slice() : makeU82Dataset(rng, difficulty);
+  const data = limitLenSeeded(rng, raw, u82MaxLen(difficulty));
+  const ctx = pick(rng, CONTEXTS);
+  const useWordProblem = pick(rng, [true, false, false] as const);
+  const dataPrompt = useWordProblem ? `${ctx.lead}\n${fmtData(data)}` : `Data set: ${fmtData(data)}`;
+
+  // For visual questions, either use a fixed worksheet plot (diff 1/2 sometimes) or a generated plot.
+  const useFixedPlot = pick(rng, [true, false, false] as const);
+  const fixed = useFixedPlot ? pick(rng, FIXED_BOXPLOTS) : null;
+  const sum = fixed ? fixed.sum : fiveNumberSummary(data);
+  const axis = fixed ? { axisMin: fixed.axisMin, axisMax: fixed.axisMax, tickStep: fixed.tickStep } : autoAxisForBoxplot(sum);
+  const viz: QuestionViz = {
+    kind: "boxplot",
+    title: fixed ? fixed.title : undefined,
+    min: sum.min,
+    q1: sum.q1,
+    median: sum.median,
+    q3: sum.q3,
+    max: sum.max,
+    ...axis,
+  };
+
+  if (kind === "READ_MIN") {
+    return {
+      id: qid("u8_2_read_min", Number(sum.min)),
+      prompt: "Look at the box plot. What is the minimum value?",
+      viz,
+      answer: sum.min,
+      hint: "The minimum is the left whisker end.",
+      difficulty,
+      tags: ["u8_2", "boxplot", "minimum"],
+    };
+  }
+
+  if (kind === "READ_MAX") {
+    return {
+      id: qid("u8_2_read_max", Number(sum.max)),
+      prompt: "Look at the box plot. What is the maximum value?",
+      viz,
+      answer: sum.max,
+      hint: "The maximum is the right whisker end.",
+      difficulty,
+      tags: ["u8_2", "boxplot", "maximum"],
+    };
+  }
+
+  if (kind === "READ_MEDIAN") {
+    return {
+      id: qid("u8_2_read_median", Number(sum.median)),
+      prompt: "Look at the box plot. What is the median?",
+      viz,
+      answer: sum.median,
+      hint: "The median is the vertical line inside the box (Q2).",
+      difficulty,
+      tags: ["u8_2", "boxplot", "median"],
+    };
+  }
+
+  if (kind === "READ_Q1") {
+    return {
+      id: qid("u8_2_read_q1", Number(sum.q1)),
+      prompt: "Look at the box plot. What is Quartile 1 (Q1)?",
+      viz,
+      answer: sum.q1,
+      hint: "Q1 is the left edge of the box.",
+      difficulty,
+      tags: ["u8_2", "boxplot", "q1"],
+    };
+  }
+
+  if (kind === "READ_Q3") {
+    return {
+      id: qid("u8_2_read_q3", Number(sum.q3)),
+      prompt: "Look at the box plot. What is Quartile 3 (Q3)?",
+      viz,
+      answer: sum.q3,
+      hint: "Q3 is the right edge of the box.",
+      difficulty,
+      tags: ["u8_2", "boxplot", "q3"],
+    };
+  }
+
+  if (kind === "DATASET_MEDIAN") {
+    const s = fiveNumberSummary(data);
+    return {
+      id: qid("u8_2_dataset_median", Number(s.median)),
+      prompt: `${dataPrompt}\n\nWhat is the median (Q2)?`,
+      answer: s.median,
+      hint: "Sort the data. The median is the middle value (or average of the two middle values).",
+      difficulty,
+      tags: ["u8_2", "quartiles", "median"],
+    };
+  }
+
+  if (kind === "DATASET_Q1") {
+    const s = fiveNumberSummary(data);
+    return {
+      id: qid("u8_2_dataset_q1", Number(s.q1)),
+      prompt: `${dataPrompt}\n\nFind Quartile 1 (Q1).`,
+      answer: s.q1,
+      hint: "Sort the data. Split it into lower/upper halves (exclude the median if there is one), then take the median of the LOWER half.",
+      difficulty,
+      tags: ["u8_2", "quartiles", "q1"],
+    };
+  }
+
+  if (kind === "DATASET_Q3") {
+    const s = fiveNumberSummary(data);
+    return {
+      id: qid("u8_2_dataset_q3", Number(s.q3)),
+      prompt: `${dataPrompt}\n\nFind Quartile 3 (Q3).`,
+      answer: s.q3,
+      hint: "Sort the data. Split it into lower/upper halves (exclude the median if there is one), then take the median of the UPPER half.",
+      difficulty,
+      tags: ["u8_2", "quartiles", "q3"],
+    };
+  }
+
+  // COMPARE_MEDIAN
+  // Use the worksheet handout-style quiz comparison sometimes.
+  const CLASS_A = [16, 8, 12, 13, 19, 15, 20, 17, 11, 18, 12];
+  const CLASS_B = [20, 15, 16, 19, 2, 8, 13, 16, 18, 3, 17, 5, 19, 20];
+  const useHandout = pick(rng, [true, false, false] as const);
+  const aData = useHandout ? CLASS_A : limitLenSeeded(rng, makeU82Dataset(rng, difficulty), u82MaxLen(difficulty));
+  const bData = useHandout ? CLASS_B : limitLenSeeded(rng, makeU82Dataset(rng, difficulty), u82MaxLen(difficulty));
+  const aSum = fiveNumberSummary(aData);
+  const bSum = fiveNumberSummary(bData);
+  const axis2 = autoAxisForBoxplot({
+    min: Math.min(aSum.min, bSum.min),
+    q1: Math.min(aSum.q1, bSum.q1),
+    median: Math.min(aSum.median, bSum.median),
+    q3: Math.max(aSum.q3, bSum.q3),
+    max: Math.max(aSum.max, bSum.max),
+  });
+  const viz2: QuestionViz = {
+    kind: "boxplot_compare",
+    title: "Compare", 
+    axisMin: axis2.axisMin,
+    axisMax: axis2.axisMax,
+    tickStep: axis2.tickStep,
+    plots: [
+      { label: "Class A", ...aSum },
+      { label: "Class B", ...bSum },
+    ],
+  };
+  const ans = aSum.median === bSum.median ? 3 : aSum.median > bSum.median ? 1 : 2;
+  return {
+    id: qid("u8_2_compare_median", ans),
+    prompt: choicePromptGeneric(
+      "Two groups wrote the same quiz. Use the box plots to decide: Which group has the higher median?",
+      ["Class A", "Class B", "Same median", "Can't tell"],
+    ),
+    viz: viz2,
+    answer: ans,
+    hint: "Compare the median lines (the vertical line inside each box).",
+    difficulty,
+    tags: ["u8_2", "boxplot", "compare", "median"],
+  };
+}
+
 const PACK_GENERATORS: Record<string, (req: QuestionRequest) => Question> = {
   u8_1: getU81Question,
+  u8_2: getU82Question,
 };
 
 export function getQuestion(req: QuestionRequest): Question {

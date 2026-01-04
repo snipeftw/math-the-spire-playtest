@@ -12,6 +12,7 @@ import { sfx } from "../game/sfx";
 import type { SetupSelection } from "../game/state";
 import { SUPPLIES_POOL_10 } from "../content/supplies";
 import { CONSUMABLES_10 } from "../content/consumables";
+import { QuestionVizView } from "../components/QuestionViz";
 
 function pct(current: number, max: number) {
   if (max <= 0) return 0;
@@ -2166,7 +2167,8 @@ function onDropPlayZone(e: React.DragEvent) {
                 </div>
               )}
 
-              <div style={{ fontSize: 18, marginTop: 10 }}>{awaiting.question.prompt}</div>
+              {awaiting.question.viz ? <QuestionVizView viz={awaiting.question.viz as any} /> : null}
+              <div style={{ fontSize: 18, marginTop: 10, whiteSpace: "pre-wrap" }}>{awaiting.question.prompt}</div>
               {props.showHints !== false && awaiting.question.hint && (
                 <div className="muted" style={{ marginTop: 10 }}>
                   Hint: {awaiting.question.hint}
