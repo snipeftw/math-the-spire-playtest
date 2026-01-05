@@ -65,8 +65,14 @@ export function BoxPlotBuilder(props: {
   };
 
   const applyOrdered = (k: keyof Summary, raw: number) => {
-    const step = Number.isFinite(tickStep) && tickStep > 0 ? tickStep : 1;
-    let v = snapToStep(raw, step);
+    // IMPORTANT:
+    // `tickStep` controls *label density* on the axis, not the precision students need.
+    // Some questions label ticks every 2 units, but correct answers can require odd
+    // numbers (and sometimes halves). So we snap to a finer step than the displayed
+    // tick labels.
+    const tick = Number.isFinite(tickStep) && tickStep > 0 ? tickStep : 1;
+    const snapStep = Math.min(tick, 0.5);
+    let v = snapToStep(raw, snapStep);
     v = clamp(v, axisMin, axisMax);
 
     // Enforce ordering: min <= q1 <= median <= q3 <= max

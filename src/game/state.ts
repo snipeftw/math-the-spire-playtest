@@ -166,6 +166,9 @@ export type GameState = {
   // doesn't always produce identical outcomes.
   eventRollNonce: number;
 
+  // Track which events have already been shown this run, to prevent repeats.
+  seenEventIds: string[];
+
   // node screen
   nodeScreen?:
     | { type: Exclude<NodeType, "SHOP" | "REST" | "EVENT">; nodeId: string; depth: number }
@@ -375,6 +378,26 @@ function pickEventIdForNode(seed: number, nodeId: string): string {
   const rng = makeRng((seed ^ hashStringToInt(nodeId)) >>> 0);
   const idx = Math.max(0, Math.min(ids.length - 1, Math.floor(rng() * ids.length)));
   return ids[idx] ?? ids[0] ?? "vault";
+}
+
+function pickUniqueEventIdForNode(args: {
+  seed: number;
+  nodeId: string;
+  seenEventIds: string[] | null | undefined;
+}): string {
+  const allIds = EVENTS.map((e) => e.id);
+  if (allIds.length === 0) return "vault";
+
+  const seen = new Set((args.seenEventIds ?? []).map((x) => String(x ?? "")));
+  const available = allIds.filter((id) => !seen.has(id));
+  const pool = available.length ? available : allIds;
+
+  // Mix in how many events have already been seen so the selection changes as the run progresses.
+  const seenCount = (args.seenEventIds ?? []).length;
+  const salt = Math.imul((seenCount + 1) >>> 0, 0x9e3779b9) >>> 0;
+  const rng = makeRng((args.seed ^ hashStringToInt(args.nodeId) ^ salt) >>> 0);
+  const idx = Math.max(0, Math.min(pool.length - 1, Math.floor(rng() * pool.length)));
+  return pool[idx] ?? pool[0] ?? "vault";
 }
 
 function buildEventNodeState(seed: number, nodeId: string, depth: number): NonNullable<GameState["nodeScreen"]> {
@@ -630,6 +653,7 @@ export const initialState: GameState = {
   debugForceQuestionRequireTags: null,
   hallwayPlays: 0,
   eventRollNonce: 0,
+  seenEventIds: [],
   nodeScreen: undefined,
   battle: undefined,
   lastOutcome: null,
@@ -911,6 +935,7 @@ export function reducer(state: GameState, action: Action): GameState {
 
         hallwayPlays: 0,
         eventRollNonce: 0,
+        seenEventIds: [],
 
         nodeScreen: undefined,
         battle: undefined,
@@ -971,6 +996,7 @@ export function reducer(state: GameState, action: Action): GameState {
         : (state.lockedNodeIds ?? []);
       const supplyIds = state.currentSupplyIds ?? [];
       const forcedEventId = state.debugForcedEventId ?? null;
+      let nextSeenEventIds = Array.isArray((state as any).seenEventIds) ? (state as any).seenEventIds.slice() : [];
 
       let nodeScreen: GameState["nodeScreen"];
 
@@ -987,7 +1013,9 @@ export function reducer(state: GameState, action: Action): GameState {
           } else {
             const ce = cached as any;
             if (ce?.type !== "EVENT" || !ce.eventId || !ce.step) {
-              nodeScreen = buildEventNodeState(state.seed, node.id, node.depth);
+              const rebuilt = buildEventNodeState(state.seed, node.id, node.depth) as any;
+              const picked = pickUniqueEventIdForNode({ seed: state.seed, nodeId: node.id, seenEventIds: nextSeenEventIds });
+              nodeScreen = { ...rebuilt, eventId: picked, step: "INTRO" } as any;
             } else {
               nodeScreen = cached;
             }
@@ -1002,12 +1030,16 @@ export function reducer(state: GameState, action: Action): GameState {
           nodeScreen = buildRestNodeState({ nodeId: node.id, depth: node.depth });
         } else if (node.type === "EVENT") {
           const rebuilt = buildEventNodeState(state.seed, node.id, node.depth) as any;
-          nodeScreen = forcedEventId
-            ? { ...rebuilt, eventId: forcedEventId, step: "INTRO", resultText: undefined, pendingUpgradeText: undefined }
-            : rebuilt;
+          const picked = forcedEventId ? forcedEventId : pickUniqueEventIdForNode({ seed: state.seed, nodeId: node.id, seenEventIds: nextSeenEventIds });
+          nodeScreen = { ...rebuilt, eventId: picked, step: "INTRO", resultText: undefined, pendingUpgradeText: undefined } as any;
         } else {
           nodeScreen = { type: node.type as any, nodeId: node.id, depth: node.depth };
         }
+      }
+
+      if ((nodeScreen as any)?.type === "EVENT" && (nodeScreen as any)?.eventId) {
+        const eid = String((nodeScreen as any).eventId);
+        if (eid && !nextSeenEventIds.includes(eid)) nextSeenEventIds.push(eid);
       }
 
       return {
@@ -1015,6 +1047,7 @@ export function reducer(state: GameState, action: Action): GameState {
         currentNodeId: action.nodeId,
         screen: "NODE",
         nodeScreen,
+        seenEventIds: nextSeenEventIds,
         lockedNodeIds: nextLockedNodeIds,
         debugForcedEventId: (node.type === "EVENT" && forcedEventId) ? null : (state.debugForcedEventId ?? null),
         reward: movingAwayFromReward ? null : state.reward,

@@ -2459,6 +2459,17 @@ return (ev?.choices ?? []).map((c) => ({
                       <QuestionVizView viz={q.viz as any} />
                     </div>
                   ) : null}
+
+                  {(() => {
+                    const qq: any = q as any;
+                    const hasDataset = Array.isArray(qq?.dataset) && qq.dataset.length > 0;
+                    const isBuilder = String(qq?.kind ?? "") === "boxplot_build";
+                    const buildData = Array.isArray(qq?.build?.data) ? qq.build.data : null;
+                    const values = (isBuilder ? buildData : (hasDataset ? qq.dataset : null)) as any;
+                    if (!Array.isArray(values) || values.length === 0) return null;
+                    return <NumberReorderHelper values={values} label="Drag to sort the numbers (helper)" />;
+                  })()}
+
                   <div style={{ fontWeight: 900, marginTop: 4 }}>{String(q.prompt ?? "")}</div>
 
                   <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
