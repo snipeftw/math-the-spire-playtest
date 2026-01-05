@@ -17,6 +17,7 @@ import { sfx } from "../game/sfx";
 import { QuestionVizView } from "../components/QuestionViz";
 import { NumberReorderHelper } from "../components/NumberReorderHelper";
 import { KeyValuesReorderHelper } from "../components/KeyValuesReorderHelper";
+import { HighlightedPrompt } from "../components/HighlightedPrompt";
 
 type ShopItemKind = "card" | "consumable" | "supply";
 
@@ -1954,7 +1955,7 @@ return (ev?.choices ?? []).map((c) => ({
                                     />
                                   );
                                 })()}
-                                <div style={{ fontSize: 18, whiteSpace: "pre-wrap" }}>{String(quiz.question?.prompt ?? "Solve:")}</div>
+                                <HighlightedPrompt text={String(quiz.question?.prompt ?? "Solve:")} style={{ fontSize: 18 }} />
                                 {props.showHints !== false && quiz.question?.hint ? (
                                   <div className="muted" style={{ fontSize: 12 }}>Hint: {String(quiz.question.hint)}</div>
                                 ) : null}
@@ -2470,7 +2471,7 @@ return (ev?.choices ?? []).map((c) => ({
                     return <NumberReorderHelper values={values} label="Drag to sort the numbers (helper)" />;
                   })()}
 
-                  <div style={{ fontWeight: 900, marginTop: 4 }}>{String(q.prompt ?? "")}</div>
+                  <HighlightedPrompt text={String(q.prompt ?? "")} style={{ fontWeight: 900, marginTop: 4 }} />
 
                   <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
                     <input

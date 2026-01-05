@@ -18,6 +18,7 @@ import { ScatterLineFitBuilder, ScatterPredictBuilder, type ScatterLineFitValue,
 import { CorrelationSlider } from "../components/CorrelationSlider";
 import { NumberReorderHelper } from "../components/NumberReorderHelper";
 import { KeyValuesReorderHelper } from "../components/KeyValuesReorderHelper";
+import { HighlightedPrompt } from "../components/HighlightedPrompt";
 
 function pct(current: number, max: number) {
   if (max <= 0) return 0;
@@ -2437,7 +2438,7 @@ function onDropPlayZone(e: React.DragEvent) {
                   />
                 );
               })()}
-              <div style={{ fontSize: 18, marginTop: 10, whiteSpace: "pre-wrap" }}>{awaiting.question.prompt}</div>
+              <HighlightedPrompt text={String(awaiting.question.prompt ?? "")} style={{ fontSize: 18, marginTop: 10 }} />
               {props.showHints !== false && awaiting.question.hint && (
                 <div className="muted" style={{ marginTop: 10 }}>
                   Hint: {awaiting.question.hint}
